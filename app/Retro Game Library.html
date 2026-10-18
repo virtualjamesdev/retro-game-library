@@ -1,0 +1,1396 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Retro Game Library</title>
+<script>
+/* Lite desktop app (Neutralino): load its client library when served by it. */
+if(/^(localhost|127\.0\.0\.1)$/.test(location.hostname)&&!/[?&]web\b/.test(location.search))document.write('<script src="/js/neutralino.js"><\/script>');
+</script>
+<script>
+/* Lite desktop app: give the page the same small file toolkit the full app has. */
+if(window.Neutralino){(function(){
+  const N=Neutralino;N.init();
+  const WIN=/^win/i.test(window.NL_OS||"");const SEP=WIN?"\\":"/";
+  const fix=p=>WIN?String(p).replace(/\//g,"\\"):String(p);
+  const join=(...a)=>{let s=a.map(x=>String(x)).filter(x=>x!=="").join(SEP);s=fix(s).replace(/([\\/])\.(?=[\\/])/g,"");return WIN?s.replace(/\\{2,}/g,"\\"):s.replace(/\/{2,}/g,"/")};
+  const dirname=p=>{const s=fix(p);const i=Math.max(s.lastIndexOf("/"),s.lastIndexOf("\\"));return i>0?s.slice(0,i):s};
+  const basename=p=>String(p).split(/[\\/]/).filter(Boolean).pop()||String(p);
+  const q=s=>'"'+String(s).replace(/"/g,'\\"')+'"';
+  let settings={},dataDir="";
+  const writeSettings=()=>N.filesystem.writeFile(join(dataDir,"settings.json"),JSON.stringify(settings,null,2)).catch(()=>{});
+  // Run curl (built into Windows 10/11, macOS and Linux) and wait for it to finish.
+  const waiting=new Map(),early=new Map();
+  N.events.on("spawnedProcess",e=>{const d=e.detail;const w=waiting.get(d.id);if(w)w(d);else{if(!early.has(d.id))early.set(d.id,[]);early.get(d.id).push(d)}});
+  async function run(cmd,onTick){
+    const p=await N.os.spawnProcess(cmd);let err="",out="",timer=onTick?setInterval(onTick,500):null;
+    return new Promise((res,rej)=>{
+      const handle=d=>{if(d.action==="stdOut")out+=d.data;else if(d.action==="stdErr")err+=d.data;else if(d.action==="exit"){waiting.delete(p.id);if(timer)clearInterval(timer);d.data===0?res(out):rej(new Error(/not (found|recognized)|No such file/i.test(err)?"curl isn't available on this computer":(err.trim()||"download failed ("+d.data+")")))}};
+      waiting.set(p.id,handle);(early.get(p.id)||[]).forEach(handle);early.delete(p.id);
+    });
+  }
+  const curl=WIN?"curl.exe":"curl";
+  const rgl={desktop:true,neu:true,
+    get dataDir(){return dataDir},
+    getSetting:k=>Object.prototype.hasOwnProperty.call(settings,k)?settings[k]:null,
+    setSetting:(k,v)=>{settings[String(k)]=v;writeSettings()},
+    pickFolder:async()=>{const p=await N.os.showFolderDialog("Choose your library folder");return p?fix(p):null},
+    pickFile:async()=>{const r=await N.os.showOpenDialog("Choose Metadata.zip",{filters:[{name:"LaunchBox Games Database",extensions:["zip"]}]});return r&&r[0]?fix(r[0]):null},
+    saveAs:async name=>{let d="";try{d=await N.os.getPath("documents")}catch(e){}const ext=(String(name).split(".").pop()||"").toLowerCase();const label={csv:"CSV spreadsheet",xlsx:"Excel workbook",pdf:"PDF document"}[ext]||"File";let p=await N.os.showSaveDialog("Save "+label,{defaultPath:d?join(d,name):name,filters:[{name:label,extensions:[ext]}]});if(p&&ext&&!p.toLowerCase().endsWith("."+ext))p+="."+ext;return p?fix(p):null},
+    join,basename,
+    exists:async p=>{try{await N.filesystem.getStats(p);return true}catch(e){return false}},
+    isDir:async p=>{try{return (await N.filesystem.getStats(p)).isDirectory}catch(e){return false}},
+    mtime:async p=>settings["mtime:"+p]||(await N.filesystem.getStats(p)).modifiedAt,
+    readdir:async p=>(await N.filesystem.readDirectory(p)).filter(e=>e.entry!=="."&&e.entry!==".."&&!e.entry.startsWith(".")&&e.entry!=="desktop.ini"&&!/\.(rgltmp|part)$/.test(e.entry)).map(e=>({name:e.entry,dir:e.type==="DIRECTORY"})),
+    // Big files in the app's data folder are read straight from the built-in server (fast); others through the file API.
+    read:async p=>{p=fix(p);if(dataDir&&p.startsWith(dataDir+SEP)){const rel=p.slice(dataDir.length+1).split(/[\\/]/).map(encodeURIComponent).join("/");const r=await fetch("/rgl-data/"+rel,{cache:"no-store"});if(r.ok)return r.arrayBuffer()}return N.filesystem.readBinaryFile(p)},
+    write:async(p,data)=>{await N.filesystem.createDirectory(dirname(p)).catch(()=>{});await N.filesystem.writeBinaryFile(p,data)},
+    mkdir:p=>N.filesystem.createDirectory(p).catch(()=>{}),
+    rm:p=>N.filesystem.remove(p).catch(()=>{}),
+    move:async(a,b)=>{await N.filesystem.remove(b).catch(()=>{});await N.filesystem.move(a,b)},
+    setMtime:(p,ms)=>rgl.setSetting("mtime:"+p,ms),
+    // Ask the server when the file last changed and how big it is.
+    head:async url=>{
+      try{const r=await N.net.head(url,{allowRedirects:true,timeout:20});const h={};for(const k in (r.headers||{}))h[k.toLowerCase()]=r.headers[k];if(r.status<400)return {lastModified:Date.parse(h["last-modified"]||"")||0,length:+h["content-length"]||0}}catch(e){}
+      try{const out=await run(`${curl} -sIL --max-time 30 ${q(url)}`);const lm=[...out.matchAll(/last-modified:\s*(.+)/ig)].pop(),cl=[...out.matchAll(/content-length:\s*(\d+)/ig)].pop();return {lastModified:lm?Date.parse(lm[1].trim())||0:0,length:cl?+cl[1]:0}}catch(e){return {lastModified:0,length:0}}
+    },
+    download:async(url,dest,onBytes)=>{await N.filesystem.remove(dest).catch(()=>{});await run(`${curl} -sSL --fail --retry 2 -o ${q(dest)} ${q(url)}`,onBytes?async()=>{try{onBytes((await N.filesystem.getStats(dest)).size)}catch(e){}}:null)},
+    fetchBlob:async url=>{const tmp=join(dataDir,"tmp",Date.now().toString(36)+Math.random().toString(36).slice(2,6)+".img");await N.filesystem.createDirectory(dirname(tmp)).catch(()=>{});try{await rgl.download(url,tmp);const b=await rgl.read(tmp);return new Blob([b])}finally{N.filesystem.remove(tmp).catch(()=>{})}}
+  };
+  window.rgl=rgl;
+  window.rglReady=(async()=>{
+    // Settings and the database live beside the app (portable) on Windows and Linux, in Application Support on a Mac.
+    let dir=null;
+    if(!/darwin|mac/i.test(window.NL_OS||"")&&window.NL_PATH){
+      let base=window.NL_PATH;try{base=await N.filesystem.getAbsolutePath(base)}catch(e){}
+      const cand=join(fix(base),"Retro Game Library Data");
+      try{await N.filesystem.createDirectory(cand).catch(()=>{});const t=join(cand,".write-test");await N.filesystem.writeFile(t,"ok");await N.filesystem.remove(t);dir=cand}catch(e){}
+    }
+    if(!dir){dir=join(fix(await N.os.getPath("data")),"Retro Game Library");await N.filesystem.createDirectory(dir).catch(()=>{})}
+    dataDir=dir;
+    try{settings=JSON.parse(await N.filesystem.readFile(join(dir,"settings.json")))||{}}catch(e){settings={}}
+    try{await N.server.mount("/rgl-data",dir)}catch(e){}
+  })();
+  // Website links open in the normal browser.
+  document.addEventListener("click",e=>{const a=e.target.closest&&e.target.closest('a[href^="http"]');if(a){e.preventDefault();N.os.open(a.href)}},true);
+})()}
+</script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=Figtree:wght@400;500;600&family=Silkscreen&display=swap">
+<style>
+/* Layout: a console-grey shelf; sticky control strip, then a wall of box-art cards. */
+:root{
+  color-scheme:light;
+  --bg:#e7e6ea; --panel:#f6f5f8; --ink:#1d1b26; --muted:#5f5b6e; --line:#cfccd8;
+  --accent:#5b3fa8; --accent-ink:#fff; --soft:#e2dbf4; --warn:#a2452f; --ok:#2f7a4f;
+  --display:"Chakra Petch",ui-sans-serif,system-ui,"Segoe UI",sans-serif;
+  --body:"Figtree",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --pixel:"Silkscreen",ui-monospace,Consolas,"Courier New",monospace;
+  --shadow:0 1px 0 rgba(29,27,38,.06),0 6px 18px -10px rgba(29,27,38,.35);
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#17161d; --panel:#211f29; --ink:#ecebf2; --muted:#a19cb3; --line:#35323f;
+  --accent:#a48cf0; --accent-ink:#17161d; --soft:#2c2640; --warn:#e5866e; --ok:#73c795;
+  --shadow:0 1px 0 rgba(0,0,0,.3),0 8px 20px -10px rgba(0,0,0,.7); color-scheme:dark}}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--body)}
+.wrap{max-width:1280px;margin:0 auto;padding:20px 16px 48px}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+[hidden]{display:none!important}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+code{font:12px/1.4 Consolas,ui-monospace,monospace;background:var(--soft);padding:1px 5px;border-radius:3px;overflow-wrap:anywhere}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 14px;border-radius:6px;font-weight:600;display:inline-flex;gap:8px;align-items:center;white-space:nowrap}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.ghost{background:transparent}
+.btn:disabled{opacity:.55;cursor:default}
+.btn.danger{color:var(--warn)}
+.btn.sm{padding:4px 9px;font-size:13px}
+
+header.top{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;justify-content:space-between;padding-bottom:16px;border-bottom:3px double var(--line)}
+.brand h1{font:700 clamp(28px,5vw,42px)/1 var(--display);margin:0;letter-spacing:.01em}
+.brand p{margin:6px 0 0;color:var(--muted);display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.pill{font-size:12px;border:1px solid var(--line);border-radius:999px;padding:1px 9px}
+.pill.ok{color:var(--ok);border-color:var(--ok)} .pill.err{color:var(--warn);border-color:var(--warn)}
+.counts{display:flex;gap:22px;flex-wrap:wrap;font-variant-numeric:tabular-nums}
+.counts div{display:grid}
+.counts b{font:700 26px/1 var(--display)}
+.counts span{font:10px/1.6 var(--pixel);letter-spacing:.06em;color:var(--muted);text-transform:uppercase}
+
+.bar{position:sticky;top:0;z-index:5;background:var(--bg);padding-block:12px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.bar input[type=search]{flex:1 1 220px;min-width:0;padding:9px 12px;border:1px solid var(--line);border-radius:6px;background:var(--panel)}
+.bar select{padding:9px 10px;border:1px solid var(--line);border-radius:6px;background:var(--panel)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg button{border:0;background:var(--panel);padding:8px 12px;font-weight:600}
+.seg button[aria-pressed=true]{background:var(--soft);color:var(--accent)}
+.chips{display:flex;gap:6px;flex-wrap:wrap;padding-bottom:14px}
+.chip{border:1px solid var(--line);background:transparent;border-radius:999px;padding:3px 10px;font-size:13px;font-variant-numeric:tabular-nums}
+.chip[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.chip small{opacity:.7;margin-left:4px}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:18px}
+.card{background:var(--panel);border-radius:6px;box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column;border:0;padding:0;text-align:left;position:relative}
+.card:hover .cover img{transform:scale(1.03)}
+.cover{aspect-ratio:3/4;background:repeating-linear-gradient(135deg,var(--soft) 0 10px,var(--panel) 10px 20px);display:grid;place-items:center;overflow:hidden;position:relative}
+.cover img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:transform .25s}
+.cover .ph{font:700 15px/1.2 var(--display);padding:14px;text-align:center;color:var(--muted)}
+.plat{font:9px/1 var(--pixel);letter-spacing:.06em;text-transform:uppercase;background:var(--ink);color:var(--bg);padding:5px 7px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meta{padding:9px 10px 11px;display:grid;gap:4px;min-width:0}
+.meta h3{margin:0;font:600 14px/1.25 var(--body);overflow-wrap:anywhere}
+.tags{display:flex;gap:4px;flex-wrap:wrap}
+.tag{font-size:11px;border:1px solid var(--line);border-radius:4px;padding:0 5px;color:var(--muted)}
+.tag.cib{border-color:var(--ok);color:var(--ok)}
+.tag.digital{border-color:var(--accent);color:var(--accent);border-style:dashed}
+.tag.sealed{border-color:var(--accent);color:var(--accent)}
+.tag.multi{background:var(--soft);border-color:transparent;color:var(--accent);font-weight:600}
+
+.tablewrap{overflow-x:auto;background:var(--panel);border-radius:8px;box-shadow:var(--shadow)}
+table{border-collapse:collapse;width:100%;min-width:720px;font-variant-numeric:tabular-nums}
+th,td{padding:8px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+th{font:10px/1.4 var(--pixel);letter-spacing:.06em;color:var(--muted);text-transform:uppercase}
+tr.row{cursor:pointer}
+tr.row:hover{background:var(--soft)}
+td .thumb{width:34px;height:46px;position:relative;border-radius:2px;overflow:hidden;background:var(--soft)}
+td .thumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+
+.empty{text-align:center;padding:60px 16px;color:var(--muted);display:grid;gap:12px;justify-items:center}
+.empty h2{font:700 24px/1.2 var(--display);color:var(--ink);margin:0}
+.empty p{max-width:56ch;margin:0}
+
+/* gate */
+.gate{max-width:640px;margin:8vh auto 0;padding:0 16px;display:grid;gap:18px}
+.gate h1{font:700 40px/1 var(--display);margin:0}
+.gate .lede{color:var(--muted);margin:0}
+.steps{display:grid;gap:12px;margin:0;padding:0;list-style:none}
+.steps li{background:var(--panel);border-radius:8px;box-shadow:var(--shadow);padding:14px 16px;display:grid;gap:6px}
+.steps b{font:700 17px/1.3 var(--display)}
+.steps p{margin:0;color:var(--muted);font-size:14px}
+.steps .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.done{color:var(--ok);font-weight:600;font-size:14px}
+.gerr{color:var(--warn);font-size:14px;margin:0}
+
+/* sheets */
+.scrim{position:fixed;inset:0;background:rgba(10,9,14,.55);z-index:20;display:grid;place-items:center;padding:16px}
+.sheet{background:var(--panel);border-radius:10px;width:min(800px,100%);max-height:calc(100vh - 32px);overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+.sheet header{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--panel);z-index:2}
+.sheet header .hbtns{display:flex;gap:8px}
+.sheet header h2{margin:0;font:700 20px/1.2 var(--display)}
+.sheet .body{padding:18px}
+.form{display:grid;grid-template-columns:210px 1fr;gap:20px}
+@media (max-width:620px){.form{grid-template-columns:1fr}}
+.drop{aspect-ratio:3/4;border:2px dashed var(--line);border-radius:6px;display:grid;place-items:center;text-align:center;padding:10px;color:var(--muted);font-size:13px;overflow:hidden;position:relative;background:var(--bg)}
+.drop.over{border-color:var(--accent);background:var(--soft)}
+.drop img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.alts{display:flex;justify-content:space-between;align-items:center;margin-top:8px;font-size:13px;color:var(--muted)}
+.lbnote{font-size:13px;margin:8px 0 0;color:var(--muted)}
+.lbnote.ok{color:var(--ok)}
+.coverbtns{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.fields{display:grid;grid-template-columns:1fr 1fr;gap:12px;min-width:0;align-content:start}
+.fields .full{grid-column:1/-1}
+@media (max-width:420px){.fields{grid-template-columns:1fr}}
+label.f{display:grid;gap:4px;font-size:13px;font-weight:600;min-width:0}
+label.f input,label.f select,label.f textarea{padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);font-weight:400;width:100%;min-width:0}
+label.f textarea{min-height:70px;resize:vertical}
+.titlebox{position:relative}
+.sugg{position:absolute;left:0;right:0;top:100%;margin-top:4px;background:var(--panel);border:1px solid var(--line);border-radius:8px;box-shadow:0 12px 30px rgba(0,0,0,.25);z-index:3;max-height:360px;overflow:auto;padding:4px}
+.sugg button{display:grid;grid-template-columns:36px 1fr;gap:10px;align-items:center;width:100%;text-align:left;border:0;background:transparent;padding:5px 6px;border-radius:5px}
+.sugg button:hover,.sugg button.on{background:var(--soft)}
+.sugg .th{width:36px;height:48px;background:var(--soft);border-radius:2px;overflow:hidden;position:relative}
+.sugg .th img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.sugg b{font-weight:600;display:block;font-size:14px}
+.sugg small{color:var(--muted);font-size:12px}
+.sugg .msg{padding:8px 10px;color:var(--muted);font-size:13px}
+.also{display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:13px;color:var(--muted)}
+.actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:space-between;align-items:center;padding:14px 18px;border-top:1px solid var(--line)}
+.actions .r{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+
+.bk{display:grid;gap:16px}
+.bk section{border:1px solid var(--line);border-radius:8px;padding:14px}
+.bk h3{margin:0 0 4px;font:700 16px/1.3 var(--display)}
+.bk p{margin:0 0 10px;color:var(--muted);font-size:14px}
+.bk .row2{display:flex;gap:8px;flex-wrap:wrap}
+.status{font-size:13px;margin-top:8px;min-height:1.2em}
+.status.err{color:var(--warn)} .status.ok{color:var(--ok)}
+
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:6px;z-index:40;font-weight:600;max-width:calc(100% - 32px)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+<style>
+.gamemeta{font-size:13px;color:var(--muted);margin:2px 0 0}
+.credit{font-size:12px;color:var(--muted);font-weight:400}
+.progress{height:6px;background:var(--soft);border-radius:3px;overflow:hidden;margin-top:8px}
+.progress i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s}
+.dlrow{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+html.desktop .web-only{display:none!important}
+html:not(.desktop) .app-only{display:none!important}
+.gate .progress{max-width:420px}
+.sysrow{display:flex;gap:8px;margin-top:4px}
+.sysrow select{flex:1;min-width:0;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg)}
+.chip.x{display:inline-flex;gap:6px;align-items:center}
+.foot{margin-top:40px;padding-top:14px;border-top:1px solid var(--line);color:var(--muted);font-size:12px;text-align:center}
+.foot a{color:inherit}
+.linkbtn{border:0;background:none;padding:0;color:inherit;text-decoration:underline;cursor:pointer;font:inherit}
+.bk a{color:var(--accent)}
+.notice{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:10px 14px;margin-bottom:14px;display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+.notice p{margin:0;flex:1 1 280px;min-width:0}
+.notice .row2{display:flex;gap:8px;flex-wrap:wrap}
+</style>
+</head>
+<body>
+
+<!-- Setup / welcome back -->
+<div class="gate" id="gate" hidden>
+  <h1>Retro Game Library</h1>
+  <div id="gateResume" hidden>
+    <p class="lede">Your library is in <b id="resumeLib"></b>. Click below to open it. Your browser may ask you to allow access again.</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px">
+      <button class="btn primary" id="resumeBtn">Open my library</button>
+      <button class="btn ghost" id="changeBtn">Change setup</button>
+    </div>
+  </div>
+  <div id="gateSetup" hidden>
+    <p class="lede">Two quick steps. You only do this once.</p>
+    <ol class="steps">
+      <li><b>1. Your library folder</b>
+        <p>Where your list, covers and backups are kept. Make a folder and choose it here. Put it in Google Drive, OneDrive or Dropbox and your collection is backed up online too.</p>
+        <div class="row"><button class="btn" id="pickLib">Choose folder…</button><span class="done" id="libDone"></span></div></li>
+      <li><b>2. The game database</b>
+        <p class="web-only">Box art and descriptions come from the free <b>LaunchBox Games Database</b>. Download its file (about 100&nbsp;MB), then choose it here. You can skip this and add pictures by hand.</p>
+        <p class="app-only">Box art and descriptions come from the free <b>LaunchBox Games Database</b>. Click below to download it (about 100&nbsp;MB, takes a minute or two). You can skip this and add pictures by hand.</p>
+        <div class="row dlrow">
+          <a class="btn web-only" href="https://gamesdb.launchbox-app.com/Metadata.zip" target="_blank" rel="noopener">Download Metadata.zip</a>
+          <button class="btn primary app-only" id="dlDb">Download the game database</button>
+          <button class="btn web-only" id="pickDb">Choose Metadata.zip…</button><span class="done" id="dbDone"></span></div>
+        <div class="progress" id="gateProg" hidden><i></i></div></li>
+    </ol>
+    <div><button class="btn primary" id="startBtn" disabled>Open my library</button></div>
+  </div>
+  <p class="gerr" id="gateErr"></p>
+  <footer class="foot">Retro Game Library 1.0 · @VirtualJames 2026</footer>
+</div>
+
+<div class="wrap" id="app" hidden>
+  <header class="top">
+    <div class="brand">
+      <h1>Retro Game Library</h1>
+      <p>Every cart, disc, tape and download you own. <span class="pill" id="savePill">Saved</span> <button class="btn sm ghost" id="whereBtn" title="Change where your library is saved">Saving to <b id="whereName"></b></button></p>
+    </div>
+    <div class="counts">
+      <div><b id="cGames">0</b><span>Games</span></div>
+      <div><b id="cPlat">0</b><span>Systems</span></div>
+      <div><b id="cCib">0</b><span>Complete</span></div>
+      <div><b id="cDup">0</b><span>Spare copies</span></div>
+    </div>
+  </header>
+
+  <div class="bar">
+    <input type="search" id="q" placeholder="Search titles, notes…" aria-label="Search">
+    <select id="show" aria-label="Show">
+      <option value="all">All games</option>
+      <option value="dupes">Duplicate copies</option>
+      <option value="multi">On several systems</option>
+      <option value="physical">Physical only</option>
+      <option value="digital">Digital only</option>
+      <option value="nocover">Missing box art</option>
+    </select>
+    <select id="sort" aria-label="Sort">
+      <option value="title">Title A–Z</option>
+      <option value="platform">System</option>
+      <option value="year">Year</option>
+      <option value="added">Recently added</option>
+    </select>
+    <div class="seg" role="group" aria-label="View">
+      <button id="vGrid" aria-pressed="true">Covers</button>
+      <button id="vList" aria-pressed="false">List</button>
+    </div>
+    <button class="btn" id="openTools">Backup &amp; tools</button>
+    <button class="btn primary" id="addBtn">+ Add game</button>
+  </div>
+  <div class="notice" id="dbNotice" hidden>
+    <p id="dbNoticeText"></p>
+    <div class="row2">
+      <a class="btn sm web-only" href="https://gamesdb.launchbox-app.com/Metadata.zip" target="_blank" rel="noopener">Download latest</a>
+      <button class="btn sm web-only" id="noticePick">Choose the new file…</button>
+      <button class="btn sm primary app-only" id="noticeUpdate">Update now</button>
+      <button class="btn sm ghost" id="noticeHide">Not now</button>
+    </div>
+  </div>
+  <div class="chips" id="chips"></div>
+  <main id="view"></main>
+  <footer class="foot">Retro Game Library 1.0 · @VirtualJames 2026 · <button class="linkbtn" id="aboutLink">About</button></footer>
+</div>
+
+<!-- Add / edit -->
+<div class="scrim" id="editScrim" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="editTitle">
+    <header><h2 id="editTitle">Add game</h2><div class="hbtns"><button class="btn ghost" id="editClose" type="button">Close</button><button class="btn primary" id="saveTopBtn" type="submit" form="editForm">Save game</button></div></header>
+    <form class="body" id="editForm" autocomplete="off">
+      <div class="form">
+        <div>
+          <div class="drop" id="drop" tabindex="0" role="button" aria-label="Choose cover image">
+            <span id="dropText">Pick the system and type the title. Box art appears here.<br><br>Or drop a picture in.</span>
+          </div>
+          <div class="alts" id="alts" hidden><button type="button" class="btn sm" id="altPrev" aria-label="Previous picture">‹</button><span id="altLabel"></span><button type="button" class="btn sm" id="altNext" aria-label="Next picture">›</button></div>
+          <p class="lbnote" id="lbNote"></p>
+          <div class="coverbtns">
+            <button type="button" class="btn sm" id="chooseCover">Choose picture…</button>
+            <button type="button" class="btn sm ghost" id="removeCover" hidden>Remove</button>
+          </div>
+          <input type="file" id="coverFile" accept="image/*" hidden>
+        </div>
+        <div class="fields">
+          <label class="f full">System<select id="fPlatform" required></select></label>
+          <label class="f full" id="otherWrap" hidden>System name<input id="fPlatformOther" placeholder="Type the name of the system"></label>
+          <div class="full titlebox">
+            <label class="f">Title<input id="fTitle" required placeholder="Start typing to search the database"></label>
+            <div class="sugg" id="sugg" hidden></div>
+            <p class="gamemeta" id="fMeta"></p>
+          </div>
+          <label class="f">Region
+            <select id="fRegion"><option>PAL</option><option>NTSC-U</option><option>NTSC-J</option><option>Other</option></select></label>
+          <label class="f">What you have
+            <select id="fComplete">
+              <option value="Loose">Loose (cart/disc/tape only)</option>
+              <option value="Boxed">Boxed, no manual</option>
+              <option value="CIB">Complete in box</option>
+              <option value="Sealed">Sealed</option>
+              <option value="Digital">Digital (download)</option>
+            </select></label>
+          <label class="f" id="storeWrap" hidden>Store
+            <select id="fStore"><option>GOG</option><option>Steam</option><option>Epic Games Store</option><option>PlayStation Store</option><option>Nintendo eShop</option><option>Xbox / Microsoft Store</option><option>itch.io</option><option>Other</option></select></label>
+          <label class="f">Condition
+            <select id="fCond"><option>Mint</option><option>Very good</option><option selected>Good</option><option>Fair</option><option>Poor</option></select></label>
+          <label class="f">Date acquired<input id="fDate" type="date"></label>
+          <div class="full" id="moreSys">
+            <label class="f" for="addSysSel">Also own it on</label>
+            <div class="sysrow"><select id="addSysSel"></select><button type="button" class="btn sm" id="addSysBtn">Add system</button></div>
+            <div class="also" id="extraSys"></div>
+            <p class="gamemeta">Each system gets its own entry with the right box art, so it shows on the main screen like any other game.</p>
+          </div>
+          <label class="f full">About the game <span class="credit" id="descCredit"></span><textarea id="fDesc" rows="4" placeholder="Filled in from the database when you pick a game."></textarea></label>
+          <label class="f full">Your notes<textarea id="fNotes" placeholder="Where you got it, label damage, save battery replaced…"></textarea></label>
+          <div class="full also" id="alsoOn" hidden></div>
+        </div>
+      </div>
+    </form>
+    <div class="actions">
+      <div class="r">
+        <button class="btn" id="copyBtn" type="button" hidden>+ Another copy</button>
+        <button class="btn" id="dupBtn" type="button" hidden>+ Same game, another system</button>
+        <button class="btn danger ghost" id="delBtn" type="button" hidden>Delete</button>
+        <span id="delConfirm" hidden>Delete this game? <button class="btn danger" id="delYes" type="button">Yes, delete</button> <button class="btn ghost" id="delNo" type="button">Keep</button></span>
+      </div>
+      <div class="r">
+        <button class="btn ghost" id="editCancel" type="button">Cancel</button>
+        <button class="btn primary" id="saveBtn" type="submit" form="editForm">Save game</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Tools -->
+<div class="scrim" id="toolsScrim" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="toolsTitle">
+    <header><h2 id="toolsTitle">Backup &amp; tools</h2><button class="btn ghost" id="toolsClose">Close</button></header>
+    <div class="body bk">
+      <section>
+        <h3>Automatic backup</h3>
+        <p>Every change is saved straight away into <b id="libFolderName"></b>: <code>library.json</code>, a spreadsheet <code>Retro Game Library.csv</code>, any pictures you added yourself, and a dated copy each day in <code>backups</code>. If that folder is inside your Google Drive, OneDrive or Dropbox folder, their app uploads every change, so it's backed up online. To move it, click <b>Change setup</b> below and pick a new folder: your library is copied across.</p>
+      </section>
+      <section>
+        <h3>Export</h3>
+        <p>Save a copy to keep, print, share or put on your phone. The PDF is a catalogue with box art, grouped by system, so you can flick through your collection offline.</p>
+        <div class="row2"><button class="btn" id="pdfBtn">Save as PDF…</button><button class="btn" id="xlsxBtn">Save as Excel…</button><button class="btn" id="csvBtn">Save as CSV…</button></div>
+        <div class="progress" id="pdfProg" hidden><i></i></div>
+        <div class="status" id="csvStatus"></div>
+      </section>
+      <section>
+        <h3>Game database</h3>
+        <p id="dbStatusText"></p>
+        <div class="row2">
+          <button class="btn" id="fillBtn">Fill in missing covers &amp; descriptions</button>
+          <a class="btn ghost web-only" href="https://gamesdb.launchbox-app.com/Metadata.zip" target="_blank" rel="noopener">Download latest</a>
+          <button class="btn ghost app-only" id="updateDb">Update the database now</button>
+          <button class="btn ghost web-only" id="pickDb2">Choose database file…</button>
+        </div>
+        <div class="progress" id="fillProg" hidden><i></i></div>
+        <div class="status" id="fillStatus"></div>
+      </section>
+      <section>
+        <h3 class="web-only">Keep covers on your PC (LaunchBox owners)</h3>
+        <h3 class="app-only">Covers on your PC</h3>
+        <p class="app-only">Box art is saved into your library folder automatically, so it works offline and is backed up with everything else. If any covers are still showing from the internet (for example, added while offline), this saves them too.</p>
+        <p id="lbStatusText" class="web-only">If you have LaunchBox, connect its <code>Images</code> folder. Covers found there are copied into your library folder, so they work offline and are backed up with everything else. Other covers still show from the internet.</p>
+        <div class="row2">
+          <button class="btn web-only" id="connectLb">Connect LaunchBox Images folder…</button>
+          <button class="btn ghost" id="localiseBtn" hidden>Copy covers to my library folder</button>
+        </div>
+        <div class="status" id="lbStatus"></div>
+      </section>
+      <section>
+        <h3>Restore from a backup</h3>
+        <p>Choose a <code>library-….json</code> file from the <code>backups</code> folder. Games in it are added back or updated. Nothing else is removed.</p>
+        <div class="row2"><button class="btn" id="restoreBtn">Choose backup file…</button><input type="file" id="restoreFile" accept=".json,application/json" hidden></div>
+        <div id="restoreConfirm" hidden style="margin-top:10px"></div>
+        <div class="status" id="restoreStatus"></div>
+      </section>
+      <section>
+        <h3>Library folder</h3>
+        <p>Saving to <b id="fLib"></b>.</p>
+        <div class="row2"><button class="btn ghost" id="changeFolders">Change setup</button></div>
+      </section>
+      <section id="about">
+        <h3>About Retro Game Library</h3>
+        <p>Retro Game Library is for cataloguing the games you own: carts, tapes, discs, boxes and digital copies. It isn't a game launcher and doesn't play anything.</p>
+        <p>It's in no way a replacement for <b>LaunchBox</b>, which is brilliant for organising and playing your games on PC. If you haven't tried it, go and check it out at <a href="https://www.launchbox-app.com/" target="_blank" rel="noopener">launchbox-app.com</a>.</p>
+        <p>Game information and box art come from the LaunchBox Games Database, built by the LaunchBox community. This app isn't made by, or affiliated with, LaunchBox.</p>
+        <p>Retro Game Library 1.0 · @VirtualJames 2026 · Made with Claude Code</p>
+      </section>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const ls={get(k){if(window.rgl&&window.rgl.getSetting)return window.rgl.getSetting(k);try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){if(window.rgl&&window.rgl.setSetting)return window.rgl.setSetting(k,v);try{localStorage.setItem(k,v)}catch(e){}}};
+const stamp=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")};
+const newId=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+function toast(msg){const t=$("toast");t.textContent=msg;t.hidden=false;clearTimeout(toast._t);toast._t=setTimeout(()=>t.hidden=true,2800)}
+const IMG_BASE=window.RGL_IMG_BASE||"https://images.launchbox-app.com/";
+const DB_URL=window.RGL_DB_URL||"https://gamesdb.launchbox-app.com/Metadata.zip";
+
+/* ---------- Desktop app: real files on disk instead of browser folder access ---------- */
+const DESKTOP=!!(window.rgl&&window.rgl.desktop);
+if(DESKTOP){
+  document.documentElement.classList.add("desktop");
+  const fileCache=new Map();
+  const notFound=()=>new DOMException("Not found","NotFoundError");
+  window.nodeFile=p=>({kind:"file",name:rgl.basename(p),_p:p,
+    async getFile(){const m=await rgl.mtime(p);const c=fileCache.get(p);if(c&&c.m===m)return c.f;const f=new File([await rgl.read(p)],rgl.basename(p),{lastModified:m});fileCache.set(p,{m,f});return f},
+    async createWritable(){const parts=[];return {async write(d){parts.push(d)},async close(){await rgl.write(p,await new Blob(parts).arrayBuffer());fileCache.delete(p)}}},
+    async isSameEntry(o){return !!o&&o._p===p},async queryPermission(){return "granted"},async requestPermission(){return "granted"}});
+  window.nodeDir=p=>({kind:"directory",name:rgl.basename(p),_p:p,
+    async getDirectoryHandle(n,o){const q=rgl.join(p,n);if(!await rgl.isDir(q)){if(o&&o.create)await rgl.mkdir(q);else throw notFound()}return nodeDir(q)},
+    async getFileHandle(n,o){const q=rgl.join(p,n);if(!await rgl.exists(q)){if(o&&o.create)await rgl.write(q,new ArrayBuffer(0));else throw notFound()}return nodeFile(q)},
+    async removeEntry(n){await rgl.rm(rgl.join(p,n))},
+    async *entries(){for(const e of await rgl.readdir(p))yield [e.name,e.dir?nodeDir(rgl.join(p,e.name)):nodeFile(rgl.join(p,e.name))]},
+    async isSameEntry(o){return !!o&&o._p===p},async queryPermission(){return "granted"},async requestPermission(){return "granted"}});
+  const abort=()=>new DOMException("Cancelled","AbortError");
+  window.showDirectoryPicker=async()=>{const p=await rgl.pickFolder();if(!p)throw abort();return nodeDir(p)};
+  window.showOpenFilePicker=async()=>{const p=await rgl.pickFile();if(!p)throw abort();return [nodeFile(p)]};
+  window.showSaveFilePicker=async o=>{const p=await rgl.saveAs(o&&o.suggestedName||"export.csv");if(!p)throw abort();return nodeFile(p)};
+}
+const where=h=>h?(h._p||h.name):"";
+
+/* ---------- handle storage (IndexedDB) ---------- */
+const idb={
+  open(){return new Promise((res,rej)=>{const r=indexedDB.open("retro-game-library",1);r.onupgradeneeded=()=>r.result.createObjectStore("h");r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})},
+  async get(k){const v=(DESKTOP&&rgl.getSetting("h:"+k))||await this.raw(k);if(v&&v.nodePath)return DESKTOP&&await rgl.exists(v.nodePath)?(v.kind==="directory"?nodeDir:nodeFile)(v.nodePath):null;return v},
+  async raw(k){try{const db=await this.open();return await new Promise(res=>{const r=db.transaction("h").objectStore("h").get(k);r.onsuccess=()=>res(r.result||null);r.onerror=()=>res(null)})}catch(e){return null}},
+  async set(k,v){if(v&&v._p){v={nodePath:v._p,kind:v.kind};if(DESKTOP){rgl.setSetting("h:"+k,v);return}}try{const db=await this.open();await new Promise(res=>{const t=db.transaction("h","readwrite");t.objectStore("h").put(v,k);t.oncomplete=res;t.onerror=res})}catch(e){}}
+};
+async function permitted(h,mode,ask){
+  if(!h)return false;
+  try{if(await h.queryPermission({mode})==="granted")return true;if(ask&&await h.requestPermission({mode})==="granted")return true}catch(e){}
+  return false;
+}
+
+/* ---------- state ---------- */
+let libDir=null, dbHandle=null, lbDir=null, lbNeedsAsk=false, games=[];
+let state={q:"",plat:"",show:"all",sort:ls.get("sort")||"title",view:ls.get("view")||"grid"};
+let editing=null, pending=null, removeCoverFlag=false, inheritCover=null, alts=[], altIdx=0, picked=null;
+const tkey=g=>g.title.trim().toLowerCase();
+const ckey=g=>tkey(g)+"|"+g.platform;
+
+/* ---------- gate ---------- */
+async function boot(){
+  if(!("showDirectoryPicker" in window)){
+    $("gate").hidden=false;$("gateErr").innerHTML="This app needs <b>Google Chrome</b> or <b>Microsoft Edge</b>. Right-click the file, choose <b>Open with</b>, and pick one of those.";return;
+  }
+  libDir=await idb.get("lib");dbHandle=await idb.get("db");lbDir=await idb.get("lb");
+  if(lbDir&&!await permitted(lbDir,"read",false))lbNeedsAsk=true;
+  const confirmed=ls.get("rgl-setup-v2")==="done";
+  if(confirmed&&libDir&&await permitted(libDir,"readwrite",false)&&(!dbHandle||await permitted(dbHandle,"read",false)))return openLibrary();
+  showGate(confirmed&&!!libDir);
+}
+function showGate(resume){
+  $("app").hidden=true;$("gate").hidden=false;$("gateErr").textContent="";
+  $("gateResume").hidden=!resume;$("gateSetup").hidden=resume;
+  if(resume)$("resumeLib").textContent=where(libDir);
+  $("libDone").textContent=libDir&&!resume?"✓ Saving to “"+where(libDir)+"”":"";
+  $("dbDone").textContent=dbHandle&&!resume?"✓ "+dbHandle.name:"";
+  $("pickLib").textContent=libDir?"Choose a different folder…":"Choose folder…";
+  $("pickDb").textContent=dbHandle?"Choose a different file…":"Choose Metadata.zip…";
+  $("startBtn").disabled=!libDir;
+}
+$("resumeBtn").onclick=async()=>{
+  if(!await permitted(libDir,"readwrite",true)){$("gateErr").textContent="Access to the library folder wasn't allowed. Click again and choose Allow.";return}
+  if(dbHandle&&!await permitted(dbHandle,"read",true))dbHandle=null;
+  if(lbDir&&!await permitted(lbDir,"read",true))lbDir=null;else lbNeedsAsk=false;
+  openLibrary();
+};
+$("changeBtn").onclick=()=>showGate(false);
+$("pickLib").onclick=async()=>{
+  try{libDir=await window.showDirectoryPicker({id:"rgl-lib",mode:"readwrite"});await idb.set("lib",libDir);showGate(false)}
+  catch(e){if(e.name!=="AbortError")$("gateErr").textContent="That folder can't be used: "+e.message}
+};
+async function pickDatabase(){
+  const [h]=await window.showOpenFilePicker({id:"rgl-db",startIn:"downloads",types:[{description:"LaunchBox Games Database",accept:{"application/zip":[".zip"]}}]});
+  const file=await h.getFile();
+  await zipEntries(file); // throws if it isn't a zip
+  if(!(await zipEntries(file)).has("Metadata.xml"))throw new Error("That zip doesn't contain Metadata.xml. Download Metadata.zip from the LaunchBox Games Database.");
+  dbHandle=h;await idb.set("db",h);dbCache.clear();platformNames=[];
+}
+$("pickDb").onclick=async()=>{try{await pickDatabase();showGate(false)}catch(e){if(e.name!=="AbortError")$("gateErr").textContent=e.message}};
+$("startBtn").onclick=async()=>{
+  if(!await permitted(libDir,"readwrite",true)){$("gateErr").textContent="Access to the library folder wasn't allowed. Click Choose folder… and pick it again.";return}
+  if(dbHandle&&!await permitted(dbHandle,"read",true))dbHandle=null;
+  if(lbDir&&!await permitted(lbDir,"read",true))lbDir=null;else lbNeedsAsk=false;
+  ls.set("rgl-setup-v2","done");openLibrary();
+};
+
+let openDir=null;
+async function openLibrary(){
+  const prevDir=openDir, prevGames=games;
+  try{
+    const fh=await libDir.getFileHandle("library.json",{create:true});
+    const text=await (await fh.getFile()).text();
+    const data=text.trim()?JSON.parse(text):{games:[]};
+    games=Array.isArray(data)?data:(data.games||[]);
+    const ALIAS={"ZX Spectrum":"Sinclair ZX Spectrum","Spectrum":"Sinclair ZX Spectrum","Mega Drive":"Sega Genesis","Sega Mega Drive":"Sega Genesis","C64":"Commodore 64","Amiga":"Commodore Amiga","NES":"Nintendo Entertainment System","SNES":"Super Nintendo Entertainment System","PlayStation":"Sony Playstation","PS1":"Sony Playstation","PS2":"Sony Playstation 2","Master System":"Sega Master System","Amstrad":"Amstrad CPC"};
+    games.forEach(g=>{if(ALIAS[g.platform])g.platform=ALIAS[g.platform]});
+  }catch(e){showGate(false);$("gateErr").textContent="Couldn't read library.json in that folder: "+e.message;return}
+  // Switched to a new, empty folder while a library was open: bring the library with you.
+  if(prevDir&&prevGames.length&&!games.length&&!(await prevDir.isSameEntry(libDir).catch(()=>false))){
+    games=prevGames;
+    try{
+      const from=await prevDir.getDirectoryHandle("covers");const to=await libDir.getDirectoryHandle("covers",{create:true});
+      for(const g of games){if(!g.cover||isWeb(g.cover))continue;const name=g.cover.split("/").pop();
+        try{const f=await (await from.getFileHandle(name)).getFile();await writeFile(to,name,f)}catch(e){}}
+    }catch(e){}
+    urlCache.clear();scheduleSave();toast(`Your library was copied to “${libDir.name}”`);
+  }
+  openDir=libDir;
+  $("gate").hidden=true;$("app").hidden=false;$("whereName").textContent=where(libDir);
+  setPill("Saved","ok");render();loadPlatformNames();checkDbAge();localiseAll();
+}
+async function downloadDatabase(onProgress){
+  if(rgl.neu){
+    const info=await rgl.head(DB_URL),total=info.length||110e6;
+    const part=rgl.join(rgl.dataDir,"Metadata.zip.part"),final=rgl.join(rgl.dataDir,"Metadata.zip");
+    await rgl.download(DB_URL,part,n=>onProgress&&onProgress(Math.min(.99,n/total)));
+    const tf=new File([await rgl.read(part)],"Metadata.zip");
+    if(!(await zipEntries(tf)).has("Metadata.xml")){await rgl.rm(part);throw new Error("The download wasn't the game database. Try again later.")}
+    await rgl.move(part,final);rgl.setMtime(final,info.lastModified||Date.now());
+    dbHandle=nodeFile(final);await idb.set("db",dbHandle);dbCache.clear();platformNames=[];
+    onProgress&&onProgress(1);return;
+  }
+  const res=await fetch(DB_URL,{cache:"no-store"});
+  if(!res.ok)throw new Error("The LaunchBox site answered "+res.status+". Try again in a few minutes.");
+  const total=+res.headers.get("content-length")||110e6, lm=Date.parse(res.headers.get("last-modified")||"")||Date.now();
+  const rd=res.body.getReader();const chunks=[];let got=0;
+  for(;;){const {value,done}=await rd.read();if(done)break;chunks.push(value);got+=value.length;onProgress&&onProgress(Math.min(.99,got/total))}
+  const blob=new Blob(chunks);
+  if(!(await zipEntries(blob)).has("Metadata.xml"))throw new Error("The download wasn't the game database. Try again later.");
+  const path=rgl.join(rgl.dataDir,"Metadata.zip");
+  rgl.write(path,await blob.arrayBuffer());rgl.setMtime(path,lm);
+  dbHandle=nodeFile(path);await idb.set("db",dbHandle);dbCache.clear();platformNames=[];
+  onProgress&&onProgress(1);
+}
+async function serverDbDate(){if(rgl.neu)return (await rgl.head(DB_URL)).lastModified;try{const r=await fetch(DB_URL,{method:"HEAD",cache:"no-store"});return Date.parse(r.headers.get("last-modified")||"")||0}catch(e){return 0}}
+let dbUpdating=false;
+async function runDbUpdate(btn,progEl,statusFn){
+  if(dbUpdating)return;dbUpdating=true;const bar=progEl&&progEl.querySelector("i");if(progEl)progEl.hidden=false;if(btn)btn.disabled=true;
+  try{await downloadDatabase(p=>{if(bar)bar.style.width=Math.round(p*100)+"%";statusFn&&statusFn(`Downloading the game database… ${Math.round(p*100)}%`)});await loadPlatformNames();statusFn&&statusFn("Game database updated.",true);return true}
+  catch(e){statusFn&&statusFn("Couldn't download the database: "+e.message,false,true);return false}
+  finally{dbUpdating=false;if(progEl)progEl.hidden=true;if(btn)btn.disabled=false}
+}
+async function checkDbAge(){
+  if(DESKTOP){
+    const n=$("dbNotice"), f=await dbFile();
+    if(!f){$("dbNoticeText").textContent="The game database isn't downloaded yet, so box art and descriptions won't be found.";$("noticeUpdate").textContent="Download it now";n.hidden=false;return}
+    const days=Math.floor((Date.now()-f.lastModified)/864e5);
+    if(days<14||ls.get("rgl-db-snooze")===String(f.lastModified)){n.hidden=true;return}
+    const server=await serverDbDate();
+    if(server>f.lastModified+864e5){
+      $("dbNoticeText").textContent=`A newer game database is available. Yours is from ${new Date(f.lastModified).toLocaleDateString("en-GB",{day:"numeric",month:"long"})}, so it's missing games and box art added since.`;
+      $("noticeUpdate").textContent="Update now";n.hidden=false;
+    }else n.hidden=true;
+    return;
+  }
+  const f=await dbFile();const n=$("dbNotice");
+  if(!f){n.hidden=true;return}
+  const days=Math.floor((Date.now()-f.lastModified)/864e5);
+  if(days>=30&&ls.get("rgl-db-snooze")!==String(f.lastModified)){
+    $("dbNoticeText").textContent=`Your game database was downloaded ${days} days ago. LaunchBox adds new games and box art every day, so download the latest copy and choose it here.`;
+    n.hidden=false;
+  }else n.hidden=true;
+}
+
+/* ---------- saving ---------- */
+let saveTimer=null, saveChain=Promise.resolve();
+function setPill(t,kind){const p=$("savePill");p.textContent=t;p.className="pill"+(kind?" "+kind:"")}
+async function writeFile(dir,name,data){const fh=await dir.getFileHandle(name,{create:true});const w=await fh.createWritable();await w.write(data);await w.close()}
+function toJSON(){return JSON.stringify({app:"Retro Game Library",version:2,savedAt:new Date().toISOString(),games},null,2)}
+function scheduleSave(){clearTimeout(saveTimer);setPill("Saving…");saveTimer=setTimeout(()=>{saveChain=saveChain.then(doSave)},300)}
+async function doSave(){
+  try{
+    const json=toJSON();
+    await writeFile(libDir,"library.json",json);
+    await writeFile(libDir,"Retro Game Library.csv","\ufeff"+toCSV());
+    const bk=await libDir.getDirectoryHandle("backups",{create:true});
+    await writeFile(bk,`library-${stamp()}.json`,json);
+    setPill("Saved "+new Date().toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"}),"ok");
+  }catch(e){setPill("Not saved: "+e.message,"err");toast("Couldn't save. Is Google Drive running?")}
+}
+
+/* ---------- covers ---------- */
+const isWeb=p=>/^https?:\/\//.test(p||"");
+const urlCache=new Map();
+async function dirFor(base,parts,create){let d=base;for(const s of parts)d=await d.getDirectoryHandle(s,create?{create:true}:undefined);return d}
+function coverURL(path){
+  if(!path)return Promise.resolve(null);
+  if(isWeb(path))return Promise.resolve(path);
+  if(!urlCache.has(path))urlCache.set(path,(async()=>{const parts=path.split("/");const d=await dirFor(libDir,parts.slice(0,-1));const f=await (await d.getFileHandle(parts.at(-1))).getFile();return URL.createObjectURL(f)})().catch(()=>null));
+  return urlCache.get(path);
+}
+const coverImg=(p,web)=>!p?"":isWeb(p)?`<img src="${esc(p)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:`<img data-cv="${esc(p)}"${web?` data-web="${esc(web)}"`:""} alt="">`;
+function hydrate(root){root.querySelectorAll("img[data-cv]").forEach(async img=>{const u=await coverURL(img.dataset.cv);if(u)img.src=u;else if(img.dataset.web){img.referrerPolicy="no-referrer";img.src=img.dataset.web}else img.remove()})}
+async function saveCover(blob,id){
+  const covers=await libDir.getDirectoryHandle("covers",{create:true});
+  const name=`${id}-${Date.now().toString(36)}.jpg`;
+  await writeFile(covers,name,blob);return "covers/"+name;
+}
+async function dropCoverIfUnused(path,exceptId){
+  if(!path||isWeb(path)||games.some(g=>g.id!==exceptId&&g.cover===path))return;
+  try{const parts=path.split("/");const d=await dirFor(libDir,parts.slice(0,-1));await d.removeEntry(parts.at(-1))}catch(e){}
+  urlCache.delete(path);
+}
+async function shrink(file){
+  const url=URL.createObjectURL(file);
+  try{
+    const img=await new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=url});
+    const scale=Math.min(1,450/img.naturalHeight);
+    const c=document.createElement("canvas");c.width=Math.round(img.naturalWidth*scale);c.height=Math.round(img.naturalHeight*scale);
+    const ctx=c.getContext("2d");ctx.fillStyle="#fff";ctx.fillRect(0,0,c.width,c.height);ctx.drawImage(img,0,0,c.width,c.height);
+    return await new Promise(r=>c.toBlob(b=>r(b||file),"image/jpeg",.82));
+  }finally{URL.revokeObjectURL(url)}
+}
+
+/* ---------- LaunchBox Games Database (Metadata.zip) ---------- */
+// Reads the zip in the browser: no upload, nothing leaves the PC.
+async function zipEntries(file){
+  const tail=new Uint8Array(await file.slice(Math.max(0,file.size-65557)).arrayBuffer());
+  const dv=new DataView(tail.buffer);let e=-1;
+  for(let i=tail.length-22;i>=0;i--)if(dv.getUint32(i,true)===0x06054b50){e=i;break}
+  if(e<0)throw new Error("That file isn't a zip. Choose Metadata.zip.");
+  const n=dv.getUint16(e+10,true),cdSize=dv.getUint32(e+12,true),cdOff=dv.getUint32(e+16,true);
+  const cd=new Uint8Array(await file.slice(cdOff,cdOff+cdSize).arrayBuffer());const cv=new DataView(cd.buffer);
+  const map=new Map();let p=0;
+  for(let k=0;k<n;k++){
+    const meth=cv.getUint16(p+10,true),csz=cv.getUint32(p+20,true),fl=cv.getUint16(p+28,true),xl=cv.getUint16(p+30,true),cl=cv.getUint16(p+32,true),lo=cv.getUint32(p+42,true);
+    map.set(new TextDecoder().decode(cd.slice(p+46,p+46+fl)),{meth,csz,lo});p+=46+fl+xl+cl;
+  }
+  return map;
+}
+async function entryStream(file,name){
+  const ent=(await zipEntries(file)).get(name);if(!ent)throw new Error(name+" is missing from the database file.");
+  const h=new DataView(await file.slice(ent.lo,ent.lo+30).arrayBuffer());
+  const start=ent.lo+30+h.getUint16(26,true)+h.getUint16(28,true);
+  let s=file.slice(start,start+ent.csz).stream();
+  if(ent.meth===8)s=s.pipeThrough(new DecompressionStream("deflate-raw"));
+  return {stream:s.pipeThrough(new TextDecoderStream()),size:ent.csz};
+}
+const unxml=s=>s.replace(/&(lt|gt|amp|quot|apos|#\d+|#x[0-9a-f]+);/gi,(m,c)=>({lt:"<",gt:">",amp:"&",quot:'"',apos:"'"}[c.toLowerCase()]??(c[1].toLowerCase()==="x"?String.fromCodePoint(parseInt(c.slice(2),16)):String.fromCodePoint(+c.slice(1)))));
+const tag=(b,n)=>{const i=b.indexOf("<"+n+">");if(i<0)return "";const j=b.indexOf("</"+n+">",i);return j<0?"":unxml(b.slice(i+n.length+2,j)).trim()};
+let platformNames=[];
+async function dbFile(){if(!dbHandle)return null;try{return await dbHandle.getFile()}catch(e){return null}}
+async function loadPlatformNames(){
+  const f=await dbFile();
+  if(f){try{const {stream}=await entryStream(f,"Platforms.xml");const s=await new Response(stream.pipeThrough(new TextEncoderStream())).text();platformNames=[...s.matchAll(/<Platform>\s*<Name>([^<]*)<\/Name>/g)].map(m=>unxml(m[1]))}catch(e){}}
+  updatePlatList();
+}
+const COMMON_SYSTEMS=["3DO Interactive Multiplayer","Amstrad CPC","Amstrad GX4000","Apple II","Atari 2600","Atari 5200","Atari 7800","Atari 800","Atari Jaguar","Atari Lynx","Atari ST","BBC Microcomputer System","Coleco ColecoVision","Commodore 64","Commodore Amiga","Commodore Amiga CD32","Commodore VIC-20","Dragon 32/64","GCE Vectrex","Mattel Intellivision","Microsoft MSX","Microsoft Xbox","Microsoft Xbox 360","NEC TurboGrafx-16","NEC TurboGrafx-CD","Nintendo 3DS","Nintendo 64","Nintendo DS","Nintendo Entertainment System","Nintendo Game Boy","Nintendo Game Boy Advance","Nintendo Game Boy Color","Nintendo GameCube","Nintendo Switch","Nintendo Virtual Boy","Nintendo Wii","Nintendo Wii U","Oric Atmos","Philips CD-i","Sega 32X","Sega CD","Sega Dreamcast","Sega Game Gear","Sega Genesis","Sega Master System","Sega Saturn","Sinclair ZX Spectrum","Sinclair ZX-81","SNK Neo Geo AES","SNK Neo Geo CD","SNK Neo Geo Pocket Color","Sony Playstation","Sony Playstation 2","Sony Playstation 3","Sony PSP","Super Nintendo Entertainment System","Texas Instruments TI 99/4A"];
+function updatePlatList(keep){
+  const sel=$("fPlatform");const cur=keep!==undefined?keep:platVal();
+  const mine=[...new Set(games.map(g=>g.platform).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  const all=[...new Set(platformNames.length?platformNames:COMMON_SYSTEMS)].sort((a,b)=>a.localeCompare(b));
+  if(cur&&!mine.includes(cur)&&!all.includes(cur))mine.push(cur);
+  const opt=p=>`<option value="${esc(p)}">${esc(p)}</option>`;
+  sel.innerHTML=`<option value="" disabled>Choose a system…</option>`+(mine.length?`<optgroup label="Your systems">${mine.map(opt).join("")}</optgroup>`:"")+`<optgroup label="All systems">${all.filter(p=>!mine.includes(p)).map(opt).join("")}</optgroup><option value="__other">Other… (type a name)</option>`;
+  sel.value=cur||"";if(!cur)sel.selectedIndex=0;
+}
+function platVal(){const s=$("fPlatform");return s.value==="__other"?$("fPlatformOther").value.trim():(s.value||"")}
+function setPlat(v){updatePlatList(v||"");$("otherWrap").hidden=true;$("fPlatformOther").value=""}
+const dbCache=new Map(); // platform -> Promise<game[]>
+let dbBusy=Promise.resolve();
+// One pass over Metadata.xml collects games, alternate names and front covers for the asked-for systems.
+function loadPlatforms(plats,onProgress){
+  const want=[...new Set(plats.filter(p=>p&&!dbCache.has(p)))];
+  if(want.length){
+    const job=dbBusy.then(async()=>{
+      const f=await dbFile();if(!f)return Object.fromEntries(want.map(p=>[p,[]]));
+      const {stream,size}=await entryStream(f,"Metadata.xml");
+      const wantSet=new Set(want), byId=new Map(), out=Object.fromEntries(want.map(p=>[p,[]]));
+      const rd=stream.getReader();let buf="",readBytes=0;
+      const re=/<(Game|GameAlternateName|GameImage)>([\s\S]*?)<\/\1>/g;
+      const total=size*4.9; // roughly the unzipped size
+      for(;;){
+        const {value,done}=await rd.read();if(done)break;
+        buf+=value;readBytes+=value.length;re.lastIndex=0;let m,last=0;
+        while((m=re.exec(buf))){
+          last=re.lastIndex;const b=m[2];
+          if(m[1]==="Game"){
+            const plat=tag(b,"Platform");if(!wantSet.has(plat))continue;
+            const g={id:tag(b,"DatabaseID"),title:tag(b,"Name"),platform:plat,overview:tag(b,"Overview"),
+              year:(tag(b,"ReleaseDate")||tag(b,"ReleaseYear")).slice(0,4),developer:tag(b,"Developer"),publisher:tag(b,"Publisher"),genre:tag(b,"Genres"),
+              names:[],covers:[]};
+            g.names.push(g.title);byId.set(g.id,g);out[plat].push(g);
+          }else if(byId.size){
+            const g=byId.get(tag(b,"DatabaseID"));if(!g)continue;
+            if(m[1]==="GameAlternateName"){const a=tag(b,"AlternateName");if(a)g.names.push(a)}
+            else{const type=tag(b,"Type");if(type==="Box - Front"||type==="Box - Front - Reconstructed")g.covers.push({file:tag(b,"FileName"),region:tag(b,"Region"),rank:type==="Box - Front"?0:1})}
+          }
+        }
+        buf=buf.slice(last);if(buf.length>4e6)buf=buf.slice(-1e6);
+        onProgress&&onProgress(Math.min(.99,readBytes/total));
+      }
+      for(const list of Object.values(out))for(const g of list)g.norms=g.names.map(norm);
+      onProgress&&onProgress(1);
+      return out;
+    });
+    dbBusy=job.catch(()=>{});
+    for(const p of want)dbCache.set(p,job.then(o=>o[p]||[]).catch(e=>{dbCache.delete(p);throw e}));
+  }
+  return Promise.all(plats.map(p=>dbCache.get(p)||Promise.resolve([])));
+}
+// Ignore "The", bracketed extras and words people add that aren't part of the title.
+const cleanTitle=s=>String(s).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+  .replace(/\(.*?\)|\[.*?\]/g," ")
+  .replace(/\b(the )?video ?game\b|\bcomputer game\b|\b(zx ?)?(16|48|128) ?k\b|\b(zx )?spectrum( version)?\s*$|\b(by|from) (crl|ocean|imagine|ultimate|codemasters|mastertronic|firebird|hewson|gremlin|us gold)\b.*$/g," ")
+  .replace(/^\s*the\s+/,"").replace(/,\s*the\s*$/,"").trim();
+const norm=s=>cleanTitle(s).replace(/&/g,"and").replace(/[^a-z0-9]/g,"");
+const REGION_PREF={"PAL":["Europe","United Kingdom","World","","Australia"],"NTSC-U":["North America","United States","World",""],"NTSC-J":["Japan","World",""],"Other":["World",""]};
+const regionRank=(r,code)=>{const i=(REGION_PREF[code]||REGION_PREF.Other).indexOf(r);return i<0?50:i};
+function sortCovers(g,region){return [...g.covers].sort((a,b)=>a.rank-b.rank||regionRank(a.region,region)-regionRank(b.region,region))}
+async function dbSearch(plat,q,region,limit=8){
+  const n=norm(q);if(!n||!dbHandle)return [];
+  const words=cleanTitle(q).split(/\s+/).map(w=>w.replace(/[^a-z0-9]/g,"")).filter(w=>w.length>1&&w!=="of"&&w!=="the");
+  const [list]=await loadPlatforms([plat],p=>setNote(`Loading ${plat} from the database… ${Math.round(p*100)}%`));
+  const res=[];
+  for(const g of list){
+    let s=9;
+    for(const k of g.norms){let t;if(!k)continue;if(k===n)t=0;else if(k.startsWith(n))t=1;else if(k.includes(n))t=2;else if(k.length>=5&&n.includes(k))t=2.5;else if(words.length>1&&words.every(w=>k.includes(w)))t=3;else continue;if(t<s)s=t}
+    if(s<9)res.push({g,score:s});
+  }
+  return res.sort((a,b)=>a.score-b.score||(b.g.covers.length>0)-(a.g.covers.length>0)||a.g.title.length-b.g.title.length||a.g.title.localeCompare(b.g.title)).slice(0,limit);
+}
+
+/* ---------- LaunchBox Images folder (optional, for local copies) ---------- */
+const lbIndex=new Map();
+function lbIndexFor(plat){
+  if(!lbDir||!plat)return Promise.resolve([]);
+  if(!lbIndex.has(plat))lbIndex.set(plat,(async()=>{
+    const list=[];let pd;
+    try{pd=await lbDir.getDirectoryHandle(plat)}catch(e){return list}
+    async function walk(d,region,rank,depth){
+      for await(const [name,h] of d.entries()){
+        if(h.kind==="directory"){if(depth<2)await walk(h,region||name,rank,depth+1)}
+        else if(/\.(png|jpe?g|gif|webp|bmp)$/i.test(name))list.push({norm:norm(name.replace(/\.[^.]+$/,"").replace(/-\d+$/,"").replace(/_/g," ")),region,rank,file:h,name});
+      }
+    }
+    for(const [folder,rank] of [["Box - Front",0],["Box - Front - Reconstructed",1]]){try{await walk(await pd.getDirectoryHandle(folder),"",rank,0)}catch(e){}}
+    return list;
+  })());
+  return lbIndex.get(plat);
+}
+// Find this game's front cover in the LaunchBox Images folder, trying every name it's known by.
+async function localCoverFile(plat,names,region){
+  const idx=await lbIndexFor(plat);if(!idx.length)return null;
+  const want=new Set(names.filter(Boolean).map(norm).filter(Boolean));
+  const hits=idx.filter(e=>want.has(e.norm)).sort((a,b)=>a.rank-b.rank||regionRank(a.region,region)-regionRank(b.region,region)||a.name.localeCompare(b.name));
+  return hits[0]||null;
+}
+// Copy a matching LaunchBox picture into the library folder; returns true if done.
+async function localise(g,extraNames){
+  if(!g.cover||!isWeb(g.cover))return false;
+  let src=null;
+  if(lbDir){try{const hit=await localCoverFile(g.platform,[g.title,...(extraNames||[])],g.region);if(hit)src=await hit.file.getFile()}catch(e){}}
+  if(!src&&DESKTOP){try{if(rgl.neu)src=await rgl.fetchBlob(g.cover);else{const r=await fetch(g.cover);if(r.ok)src=await r.blob()}}catch(e){}}
+  if(!src)return false;
+  try{const blob=await shrink(src);g.coverWeb=g.cover;g.cover=await saveCover(blob,g.id);return true}catch(e){return false}
+}
+// Desktop: quietly save any covers still shown from the internet.
+async function localiseAll(){
+  if(!DESKTOP)return;const todo=games.filter(g=>isWeb(g.cover));let n=0;
+  for(const g of todo)if(await localise(g)){g.updatedAt=Date.now();n++}
+  if(n){render();scheduleSave()}
+}
+
+/* ---------- render ---------- */
+function filtered(){
+  const q=state.q.trim().toLowerCase();
+  const nCopy={},plats={};
+  games.forEach(g=>{nCopy[ckey(g)]=(nCopy[ckey(g)]||0)+1;(plats[tkey(g)]=plats[tkey(g)]||new Set()).add(g.platform)});
+  const list=games.filter(g=>(!state.plat||g.platform===state.plat)
+    &&(state.show!=="dupes"||nCopy[ckey(g)]>1)
+    &&(state.show!=="multi"||plats[tkey(g)].size>1)
+    &&(state.show!=="nocover"||!g.cover)
+    &&(state.show!=="digital"||g.complete==="Digital")
+    &&(state.show!=="physical"||g.complete!=="Digital")
+    &&(!q||[g.title,g.platform,g.notes,g.region,g.publisher,g.developer].join(" ").toLowerCase().includes(q)));
+  const by={title:(a,b)=>a.title.localeCompare(b.title)||a.platform.localeCompare(b.platform),platform:(a,b)=>a.platform.localeCompare(b.platform)||a.title.localeCompare(b.title),
+    year:(a,b)=>(a.year||"9999").localeCompare(b.year||"9999")||a.title.localeCompare(b.title),added:(a,b)=>(b.createdAt||0)-(a.createdAt||0)}[state.sort]||((a,b)=>0);
+  return list.sort(by);
+}
+function render(){
+  $("sort").value=state.sort;$("show").value=state.show;
+  $("vGrid").setAttribute("aria-pressed",state.view==="grid");$("vList").setAttribute("aria-pressed",state.view==="list");
+  const plats={};games.forEach(g=>plats[g.platform]=(plats[g.platform]||0)+1);
+  $("cGames").textContent=games.length;$("cPlat").textContent=Object.keys(plats).length;
+  $("cCib").textContent=games.filter(g=>g.complete==="CIB"||g.complete==="Sealed").length;
+  $("cDup").textContent=games.length-new Set(games.map(ckey)).size;
+  const names=Object.keys(plats).sort((a,b)=>a.localeCompare(b));
+  if(state.plat&&!plats[state.plat])state.plat="";
+  $("chips").innerHTML=names.length<2?"":[`<button class="chip" data-p="" aria-pressed="${!state.plat}">All<small>${games.length}</small></button>`].concat(names.map(p=>`<button class="chip" data-p="${esc(p)}" aria-pressed="${state.plat===p}">${esc(p)}<small>${plats[p]}</small></button>`)).join("");
+  updatePlatList();
+  const v=$("view");
+  if(!games.length){
+    v.innerHTML=`<div class="empty"><h2>Your library is empty</h2><p>Click <b>+ Add game</b>, pick the system and start typing the title. Matching box art pops up as you type.</p><button class="btn primary" id="emptyAdd">+ Add your first game</button></div>`;
+    $("emptyAdd").onclick=()=>openEdit(null);return;
+  }
+  const list=filtered();
+  if(!list.length){v.innerHTML=`<div class="empty"><h2>No matches</h2><p>Nothing matches that search or filter.</p></div>`;return}
+  const byTitle={};games.forEach(g=>(byTitle[tkey(g)]=byTitle[tkey(g)]||[]).push(g.platform));
+  const others=g=>{const all=byTitle[tkey(g)]||[];const o=[...new Set(all.filter(p=>p!==g.platform))];const n=all.filter(p=>p===g.platform).length;
+    return (n>1?`<span class="tag multi">×${n} copies</span>`:"")+(o.length?`<span class="tag multi" title="Also on ${esc(o.join(", "))}">+${o.length} system${o.length>1?"s":""}</span>`:"")};
+  const tagFor=c=>c==="CIB"?'<span class="tag cib">CIB</span>':c==="Sealed"?'<span class="tag sealed">Sealed</span>':c==="Digital"?'<span class="tag digital">Digital</span>':`<span class="tag">${esc(c||"Loose")}</span>`;
+  if(state.view==="grid"){
+    v.innerHTML=`<div class="grid">${list.map(g=>`<button class="card" data-id="${esc(g.id)}"${g.description?` title="${esc(g.description.slice(0,300))}"`:""}>
+      <span class="plat">${esc(g.platform)}</span>
+      <span class="cover"><span class="ph">${esc(g.title)}</span>${coverImg(g.cover,g.coverWeb)}</span>
+      <span class="meta"><h3>${esc(g.title)}</h3><span class="tags">${tagFor(g.complete)}${g.complete==="Digital"&&g.store?`<span class="tag">${esc(g.store)}</span>`:`<span class="tag">${esc(g.region||"")}</span>`}${g.year?`<span class="tag">${esc(g.year)}</span>`:""}${others(g)}</span></span>
+    </button>`).join("")}</div>`;
+  }else{
+    v.innerHTML=`<div class="tablewrap"><table><thead><tr><th></th><th>Title</th><th>System</th><th>Year</th><th>Publisher</th><th>Region</th><th>Have</th><th>Condition</th></tr></thead><tbody>${list.map(g=>`<tr class="row" data-id="${esc(g.id)}" tabindex="0"><td><div class="thumb">${coverImg(g.cover,g.coverWeb)}</div></td><td><b>${esc(g.title)}</b> ${others(g)}</td><td>${esc(g.platform)}</td><td>${esc(g.year||"")}</td><td>${esc(g.publisher||"")}</td><td>${esc(g.region)}</td><td>${tagFor(g.complete)}${g.store?` <span class="tag">${esc(g.store)}</span>`:""}</td><td>${esc(g.complete==="Digital"?"":g.cond||"")}</td></tr>`).join("")}</tbody></table></div>`;
+  }
+  hydrate(v);
+}
+$("chips").onclick=e=>{const b=e.target.closest(".chip");if(!b)return;state.plat=b.dataset.p;render()};
+$("q").oninput=e=>{state.q=e.target.value;render()};
+$("sort").onchange=e=>{state.sort=e.target.value;ls.set("sort",state.sort);render()};
+$("show").onchange=e=>{state.show=e.target.value;render()};
+$("vGrid").onclick=()=>{state.view="grid";ls.set("view","grid");render()};
+$("vList").onclick=()=>{state.view="list";ls.set("view","list");render()};
+$("view").onclick=e=>{const el=e.target.closest("[data-id]");if(el)openEdit(games.find(g=>g.id===el.dataset.id))};
+$("view").onkeydown=e=>{if(e.key==="Enter"){const el=e.target.closest("tr[data-id]");if(el)openEdit(games.find(g=>g.id===el.dataset.id))}};
+
+/* ---------- edit sheet ---------- */
+function setDrop(src){
+  const d=$("drop");d.querySelector("img")?.remove();
+  $("dropText").hidden=!!src;$("removeCover").hidden=!src;
+  if(src){const i=document.createElement("img");i.referrerPolicy="no-referrer";i.src=src;i.alt="Cover";i.onerror=()=>{i.remove();$("dropText").hidden=false;setNote("That picture couldn't load. Are you online?")};d.appendChild(i)}
+}
+function setNote(t,ok){const n=$("lbNote");n.textContent=t||"";n.className="lbnote"+(ok?" ok":"")}
+function setMeta(m){
+  const bits=[m?.year,m?.publisher||m?.developer,m?.genre].filter(Boolean);
+  $("fMeta").textContent=bits.join(" · ");
+}
+function showAlts(){
+  $("alts").hidden=alts.length<2;
+  if(alts.length>1)$("altLabel").textContent=`Picture ${altIdx+1} of ${alts.length}${alts[altIdx].region?" · "+alts[altIdx].region:""}`;
+}
+function openEdit(g){
+  editing=g||null;pending=null;removeCoverFlag=false;inheritCover=null;alts=[];altIdx=0;picked=null;typed=false;
+  $("editTitle").textContent=g?"Edit game":"Add game";
+  $("fTitle").value=g?.title||"";setPlat(g?.platform||state.plat||"");
+  $("fRegion").value=g?.region||"PAL";$("fComplete").value=g?.complete||"Loose";
+  $("fCond").value=g?.cond||"Good";$("fStore").value=g?.store||"GOG";syncDigital();$("fDate").value=g?.acquired||"";$("fNotes").value=g?.notes||"";
+  $("fDesc").value=g?.description||"";$("descCredit").textContent=g?.dbId?"· from the LaunchBox Games Database":"";setMeta(g);
+  setDrop("");if(g?.cover)coverURL(g.cover).then(u=>{if(editing===g&&u&&!pending)setDrop(u)});
+  showAlts();setNote(!dbHandle?"No game database chosen, so box art won't be found automatically. Set it up under Backup & tools.":"");
+  $("sugg").hidden=true;
+  for(const id of ["delBtn","dupBtn","copyBtn"])$(id).hidden=!g;$("delConfirm").hidden=true;
+  extraSys=[];drawExtraSys();fillSysPicker();
+  const also=g?games.filter(x=>x.id!==g.id&&tkey(x)===tkey(g)):[];
+  $("alsoOn").hidden=!also.length;
+  $("alsoOn").innerHTML=also.length?"<span>Other copies you own</span>"+also.map(x=>`<button type="button" class="chip" data-open="${esc(x.id)}">${x.platform===g.platform?"Another copy ("+esc(x.complete||"Loose")+")":esc(x.platform)}</button>`).join(""):"";
+  $("editScrim").hidden=false;
+  setTimeout(()=>(platVal()?$("fTitle"):$("fPlatform")).focus(),30);
+  if(platVal()&&dbHandle)loadPlatforms([platVal()]).catch(()=>{});
+}
+function closeEdit(){$("editScrim").hidden=true;if(pending?.preview)URL.revokeObjectURL(pending.preview);pending=null;picked=null;$("sugg").hidden=true}
+$("editClose").onclick=closeEdit;$("editCancel").onclick=closeEdit;
+$("editScrim").onmousedown=e=>{if(e.target===$("editScrim"))closeEdit()};
+$("toolsScrim").onmousedown=e=>{if(e.target===$("toolsScrim"))$("toolsScrim").hidden=true};
+document.addEventListener("keydown",e=>{if(e.key==="Escape"){if(!$("sugg").hidden){$("sugg").hidden=true;return}if(!$("editScrim").hidden)closeEdit();$("toolsScrim").hidden=true}});
+
+async function takeImage(file){
+  if(!file||!file.type.startsWith("image/"))return;
+  const blob=await shrink(file);
+  if(pending?.preview)URL.revokeObjectURL(pending.preview);
+  pending={blob,preview:URL.createObjectURL(blob)};removeCoverFlag=false;alts=[];showAlts();
+  setDrop(pending.preview);
+}
+function useAlt(i){
+  if(!alts.length)return;
+  altIdx=(i+alts.length)%alts.length;
+  if(pending?.preview)URL.revokeObjectURL(pending.preview);
+  pending={url:IMG_BASE+alts[altIdx].file};removeCoverFlag=false;
+  setDrop(pending.url);showAlts();
+}
+$("altPrev").onclick=()=>useAlt(altIdx-1);
+$("altNext").onclick=()=>useAlt(altIdx+1);
+function applyMatch(g,auto){
+  $("fTitle").value=g.title;$("sugg").hidden=true;picked=g;
+  if(g.overview&&(!$("fDesc").value.trim()||auto!=="keepdesc"))$("fDesc").value=g.overview;
+  $("descCredit").textContent="· from the LaunchBox Games Database";setMeta(g);
+  alts=sortCovers(g,$("fRegion").value);altIdx=0;
+  if(alts.length){useAlt(0);setNote(auto?"Box art and description found.":"Box art from the LaunchBox Games Database.",true)}
+  else setNote("The database has this game but no front box picture. Drop one in if you have it.");
+}
+
+// Suggestions while typing
+let suggTimer=null, suggList=[], suggOn=-1, typed=false, extraSys=[];
+function fillSysPicker(){
+  const sel=$("addSysSel");sel.innerHTML=$("fPlatform").innerHTML;
+  sel.querySelector('option[value="__other"]')?.remove();
+  const ph=sel.querySelector('option[value=""]');if(ph)ph.textContent="Choose another system…";
+  sel.value="";if(sel.selectedIndex<0)sel.selectedIndex=0;
+}
+function drawExtraSys(){
+  $("extraSys").innerHTML=extraSys.map((p,i)=>`<span class="chip x">${esc(p)} <button type="button" class="btn sm ghost" data-rm="${i}" aria-label="Remove ${esc(p)}">×</button></span>`).join("");
+}
+async function updateSugg(){
+  const plat=platVal(), q=$("fTitle").value.trim(), box=$("sugg");
+  if(!dbHandle||q.length<2){box.hidden=true;return}
+  if(!plat){box.hidden=false;box.innerHTML=`<div class="msg">Pick the system first to search the database.</div>`;return}
+  let res;try{res=await dbSearch(plat,q,$("fRegion").value)}catch(e){box.hidden=false;box.innerHTML=`<div class="msg">Couldn't read the database file: ${esc(e.message)}</div>`;return}
+  if($("lbNote").textContent.startsWith("Loading"))setNote("");
+  if(q!==$("fTitle").value.trim())return;
+  suggList=res;suggOn=-1;
+  if(!res.length){box.hidden=false;box.innerHTML=`<div class="msg">Nothing in the database for “${esc(q)}” on ${esc(plat)}. You can still save it, or drop a picture in.</div>`;return}
+  box.hidden=false;
+  box.innerHTML=res.map(({g},i)=>{const c=sortCovers(g,$("fRegion").value)[0];
+    return `<button type="button" data-i="${i}"><span class="th">${c?`<img src="${esc(IMG_BASE+c.file)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:""}</span><span><b>${esc(g.title)}</b><small>${esc([g.year,g.publisher].filter(Boolean).join(" · "))}${g.covers.length?"":" · no box picture"}</small></span></button>`}).join("");
+}
+$("fTitle").oninput=()=>{picked=null;typed=true;clearTimeout(suggTimer);suggTimer=setTimeout(updateSugg,160)};
+$("fTitle").onfocus=()=>{if(typed&&$("fTitle").value.trim().length>1&&!picked)updateSugg()};
+$("fTitle").onkeydown=e=>{
+  const box=$("sugg");if(box.hidden||!suggList.length)return;
+  const btns=[...box.querySelectorAll("button")];
+  if(e.key==="ArrowDown"||e.key==="ArrowUp"){e.preventDefault();suggOn=(suggOn+(e.key==="ArrowDown"?1:-1)+btns.length)%btns.length;btns.forEach((b,i)=>b.classList.toggle("on",i===suggOn));btns[suggOn].scrollIntoView({block:"nearest"})}
+  else if(e.key==="Enter"){e.preventDefault();applyMatch(suggList[Math.max(0,suggOn)].g)}
+};
+$("sugg").onmousedown=e=>e.preventDefault();
+$("sugg").onclick=e=>{const b=e.target.closest("button[data-i]");if(b)applyMatch(suggList[+b.dataset.i].g)};
+// Automatic check when the title or system is settled
+async function exactMatch(plat,title,region){
+  const res=await dbSearch(plat,title,region,4);const ex=res.filter(r=>r.score===0);
+  return ex.length===1?ex[0].g:ex.length>1?(ex.find(r=>r.g.covers.length)||ex[0]).g:null;
+}
+async function autoCheck(){
+  $("sugg").hidden=true;
+  if($("editScrim").hidden||picked)return;
+  const plat=platVal(), q=$("fTitle").value.trim();
+  if(!dbHandle||!plat||!q||pending||inheritCover)return;
+  if(editing?.cover&&!removeCoverFlag&&editing.platform===plat&&editing.description)return;
+  let g;try{g=await exactMatch(plat,q,$("fRegion").value)}catch(e){setNote("Couldn't read the database file: "+e.message);return}
+  if($("editScrim").hidden||plat!==platVal()||q!==$("fTitle").value.trim()||pending||picked)return;
+  if(g){if(editing?.cover&&!removeCoverFlag&&editing.platform===plat){picked=g;if(!$("fDesc").value.trim()&&g.overview)$("fDesc").value=g.overview;setMeta(g);setNote("Description found.",true)}else applyMatch(g,true)}
+  else setNote("No exact match in the database. Type in the title box to see close matches.");
+}
+$("fTitle").onblur=()=>setTimeout(autoCheck,150);
+$("fPlatformOther").onchange=()=>$("fPlatform").onchange();
+$("fPlatform").onchange=()=>{
+  $("otherWrap").hidden=$("fPlatform").value!=="__other";if(!$("otherWrap").hidden&&!$("fPlatformOther").value){$("fPlatformOther").focus();return}
+  const plat=platVal();if(dbHandle&&plat)loadPlatforms([plat],p=>setNote(`Loading ${plat} from the database… ${Math.round(p*100)}%`)).then(()=>{if($("lbNote").textContent.startsWith("Loading"))setNote("")}).catch(()=>{});
+  if(!editing||editing.platform!==plat){if(pending?.preview)URL.revokeObjectURL(pending.preview);pending=null;picked=null;alts=[];showAlts();if(!inheritCover)setDrop("")}
+  autoCheck();
+};
+$("fRegion").onchange=()=>{if(picked&&alts.length&&pending?.url){alts=sortCovers(picked,$("fRegion").value);useAlt(0)}};
+
+const drop=$("drop");
+$("chooseCover").onclick=()=>$("coverFile").click();
+drop.onclick=()=>$("coverFile").click();
+drop.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();drop.click()}};
+$("coverFile").onchange=e=>{const f=e.target.files[0];e.target.value="";if(f){takeImage(f);setNote("")}};
+drop.ondragover=e=>{e.preventDefault();drop.classList.add("over")};
+drop.ondragleave=()=>drop.classList.remove("over");
+drop.ondrop=e=>{e.preventDefault();drop.classList.remove("over");const f=e.dataTransfer.files[0];if(f){takeImage(f);setNote("")}};
+document.addEventListener("paste",e=>{if($("editScrim").hidden)return;const f=[...(e.clipboardData?.files||[])].find(f=>f.type.startsWith("image/"));if(f){e.preventDefault();takeImage(f)}});
+$("removeCover").onclick=()=>{if(pending?.preview)URL.revokeObjectURL(pending.preview);pending=null;inheritCover=null;removeCoverFlag=true;alts=[];showAlts();setDrop("");setNote("")};
+
+$("editForm").onsubmit=async e=>{
+  e.preventDefault();
+  if(!platVal()){toast("Choose the system first");$("fPlatform").focus();return}
+  const btns=[$("saveBtn"),$("saveTopBtn")];btns.forEach(b=>{b.disabled=true;b.textContent="Saving…"});
+  try{
+    const now=Date.now(), id=editing?.id||newId();
+    const g={...(editing||{}),id,
+      title:$("fTitle").value.trim(),platform:platVal(),region:$("fRegion").value,
+      complete:$("fComplete").value,cond:$("fComplete").value==="Digital"?"":$("fCond").value,store:$("fComplete").value==="Digital"?$("fStore").value:"",acquired:$("fDate").value||null,notes:$("fNotes").value.trim(),
+      description:$("fDesc").value.trim(),cover:editing?.cover||inheritCover||null,
+      createdAt:editing?.createdAt||now,updatedAt:now};
+    if(inheritCover&&editing==null){const src=games.find(x=>x.cover===inheritCover);if(src){for(const k of ["dbId","year","developer","publisher","genre"])if(src[k]&&!g[k])g[k]=src[k]}}
+    // Last check if Save was clicked straight after typing
+    if(!picked&&!pending&&dbHandle&&(!g.cover||!g.description)&&!removeCoverFlag){
+      try{const m=await exactMatch(g.platform,g.title,g.region);if(m){picked=m;if(!g.cover&&m.covers.length)pending={url:IMG_BASE+sortCovers(m,g.region)[0].file};if(!g.description)g.description=m.overview}}catch(err){}
+    }
+    if(picked&&norm(g.title)===norm(picked.title))g.title=picked.title;
+    if(picked){Object.assign(g,{dbId:picked.id,year:picked.year||g.year||"",developer:picked.developer||"",publisher:picked.publisher||"",genre:picked.genre||""});if(!g.description&&picked.overview)g.description=picked.overview}
+    const old=editing?.cover||null;
+    if(pending?.url)g.cover=pending.url;
+    else if(pending?.blob)g.cover=await saveCover(pending.blob,id);
+    else if(removeCoverFlag)g.cover=null;
+    if(isWeb(g.cover)&&g.cover!==old)await localise(g,picked?.names);
+    if(editing)games[games.findIndex(x=>x.id===editing.id)]=g;else games.push(g);
+    if(old&&old!==g.cover)await dropCoverIfUnused(old,id);
+    const more=await addOtherSystems(g,picked?.names);
+    const was=!!editing;closeEdit();render();scheduleSave();toast(more?`Saved on ${more+1} systems`:was?"Game updated":"Added to your library");
+  }catch(err){toast("Couldn't save: "+err.message)}
+  finally{btns.forEach(b=>{b.disabled=false;b.textContent="Save game"})}
+};
+$("addSysBtn").onclick=()=>{
+  const p=$("addSysSel").value;if(!p)return;
+  if(p===platVal()){toast("That's the system you're already adding");return}
+  if(!extraSys.includes(p))extraSys.push(p);drawExtraSys();$("addSysSel").value="";
+};
+$("extraSys").onclick=e=>{const b=e.target.closest("[data-rm]");if(b){extraSys.splice(+b.dataset.rm,1);drawExtraSys()}};
+// Make an entry for each extra system, looking up that system's own box art and details.
+async function addOtherSystems(base,names){
+  let n=0;
+  for(const plat of extraSys){
+    if(plat===base.platform)continue;
+    const g={id:newId(),title:base.title,platform:plat,region:base.region,complete:base.complete,cond:base.cond,acquired:base.acquired,notes:"",description:"",cover:null,createdAt:Date.now(),updatedAt:Date.now()};
+    if(dbHandle){try{
+      let m=null;for(const t of [base.title,...(names||[])]){m=await exactMatch(plat,t,base.region);if(m)break}
+      if(m){Object.assign(g,{dbId:m.id,year:m.year,developer:m.developer,publisher:m.publisher,genre:m.genre,description:m.overview||base.description||""});
+        if(m.covers.length){g.cover=IMG_BASE+sortCovers(m,base.region)[0].file;await localise(g,m.names)}}
+      else g.description=base.description||"";
+    }catch(e){}}
+    games.push(g);n++;
+  }
+  extraSys=[];return n;
+}
+$("delBtn").onclick=()=>{$("delBtn").hidden=true;$("delConfirm").hidden=false};
+$("delNo").onclick=()=>{$("delBtn").hidden=false;$("delConfirm").hidden=true};
+$("delYes").onclick=async()=>{
+  if(!editing)return;const g=editing;
+  games=games.filter(x=>x.id!==g.id);await dropCoverIfUnused(g.cover,g.id);
+  closeEdit();render();scheduleSave();toast("Deleted");
+};
+$("addBtn").onclick=()=>openEdit(null);
+$("alsoOn").onclick=e=>{const b=e.target.closest("[data-open]");if(!b)return;const g=games.find(x=>x.id===b.dataset.open);if(g){closeEdit();openEdit(g)}};
+$("dupBtn").onclick=()=>{
+  const src=editing;if(!src)return;closeEdit();openEdit(null);
+  $("editTitle").textContent="Add another version";
+  $("fTitle").value=src.title;$("fRegion").value=src.region||"PAL";setPlat("");
+  setNote("Pick the other system. Its box art is looked up automatically.");
+  setTimeout(()=>$("fPlatform").focus(),60);
+};
+function syncDigital(){const d=$("fComplete").value==="Digital";$("storeWrap").hidden=!d;$("fCond").disabled=d;$("fCond").closest("label").style.opacity=d?".45":""}
+$("fComplete").addEventListener("change",syncDigital);
+$("copyBtn").onclick=()=>{
+  const src=editing;if(!src)return;closeEdit();openEdit(null);
+  $("editTitle").textContent="Add another copy";
+  $("fTitle").value=src.title;setPlat(src.platform);$("fRegion").value=src.region||"PAL";$("fDesc").value=src.description||"";setMeta(src);
+  inheritCover=src.cover||null;if(inheritCover)coverURL(inheritCover).then(u=>u&&setDrop(u));setNote("");
+  setTimeout(()=>$("fComplete").focus(),60);
+};
+
+/* ---------- Excel and PDF export (written here so they work offline, with no extra libraries) ---------- */
+const CRC_TABLE=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
+function crc32(b){let c=0xFFFFFFFF;for(let i=0;i<b.length;i++)c=CRC_TABLE[(c^b[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0}
+// A plain (uncompressed) zip, which is all an .xlsx file needs.
+function zipStore(files,type){
+  const enc=new TextEncoder(),parts=[],central=[];let off=0;
+  for(const f of files){
+    const name=enc.encode(f.name),d=typeof f.data==="string"?enc.encode(f.data):f.data,crc=crc32(d);
+    const h=new DataView(new ArrayBuffer(30));
+    h.setUint32(0,0x04034b50,true);h.setUint16(4,20,true);h.setUint16(6,0x0800,true);h.setUint16(12,0x21,true);
+    h.setUint32(14,crc,true);h.setUint32(18,d.length,true);h.setUint32(22,d.length,true);h.setUint16(26,name.length,true);
+    parts.push(new Uint8Array(h.buffer),name,d);
+    const c=new DataView(new ArrayBuffer(46));
+    c.setUint32(0,0x02014b50,true);c.setUint16(4,20,true);c.setUint16(6,20,true);c.setUint16(8,0x0800,true);c.setUint16(14,0x21,true);
+    c.setUint32(16,crc,true);c.setUint32(20,d.length,true);c.setUint32(24,d.length,true);c.setUint16(28,name.length,true);c.setUint32(42,off,true);
+    central.push(new Uint8Array(c.buffer),name);off+=30+name.length+d.length;
+  }
+  const cdSize=central.reduce((a,b)=>a+b.length,0),e=new DataView(new ArrayBuffer(22));
+  e.setUint32(0,0x06054b50,true);e.setUint16(8,files.length,true);e.setUint16(10,files.length,true);e.setUint32(12,cdSize,true);e.setUint32(16,off,true);
+  return new Blob([...parts,...central,new Uint8Array(e.buffer)],{type});
+}
+const XCOLS=[["title","Title",34],["platform","System",26],["year","Year",7],["publisher","Publisher",22],["developer","Developer",22],["genre","Genre",16],["region","Region",9],["complete","What I have",13],["store","Store",14],["cond","Condition",11],["acquired","Date acquired",13],["notes","Notes",30],["description","About the game",60]];
+function sortedGames(){return [...games].sort((a,b)=>a.platform.localeCompare(b.platform)||a.title.localeCompare(b.title))}
+function buildXlsx(){
+  const x=s=>String(s??"").replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g,"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  const col=i=>{let s="";i++;while(i){const m=(i-1)%26;s=String.fromCharCode(65+m)+s;i=Math.floor((i-1)/26)}return s};
+  const label={CIB:"Complete in box",Boxed:"Boxed",Loose:"Loose",Sealed:"Sealed",Digital:"Digital"};
+  const rows=[XCOLS.map(c=>c[1])].concat(sortedGames().map(g=>XCOLS.map(c=>c[0]==="complete"?(label[g.complete]||g.complete||""):g[c[0]]??"")));
+  const cell=(v,r,c,head)=>`<c r="${col(c)}${r}" t="inlineStr"${head?' s="1"':' s="2"'}><is><t xml:space="preserve">${x(v)}</t></is></c>`;
+  const sheet=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>
+<cols>${XCOLS.map((c,i)=>`<col min="${i+1}" max="${i+1}" width="${c[2]}" customWidth="1"/>`).join("")}</cols>
+<sheetData>${rows.map((r,ri)=>`<row r="${ri+1}">${r.map((v,ci)=>cell(v,ri+1,ci,ri===0)).join("")}</row>`).join("")}</sheetData>
+<autoFilter ref="A1:${col(XCOLS.length-1)}${rows.length}"/>
+</worksheet>`;
+  const counts={};games.forEach(g=>counts[g.platform]=(counts[g.platform]||0)+1);
+  const sum=[["System","Games"],...Object.keys(counts).sort((a,b)=>a.localeCompare(b)).map(p=>[p,counts[p]]),["Total",games.length]];
+  const sheet2=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><cols><col min="1" max="1" width="36" customWidth="1"/><col min="2" max="2" width="10" customWidth="1"/></cols>
+<sheetData>${sum.map((r,ri)=>`<row r="${ri+1}">${cell(r[0],ri+1,0,ri===0||ri===sum.length-1)}${typeof r[1]==="number"?`<c r="B${ri+1}"${ri===sum.length-1?' s="1"':''}><v>${r[1]}</v></c>`:cell(r[1],ri+1,1,true)}</row>`).join("")}</sheetData></worksheet>`;
+  return zipStore([
+    {name:"[Content_Types].xml",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/></Types>`},
+    {name:"_rels/.rels",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/></Relationships>`},
+    {name:"docProps/core.xml",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>Retro Game Library</dc:title><dc:creator>Retro Game Library</dc:creator><dcterms:created xsi:type="dcterms:W3CDTF">${new Date().toISOString().slice(0,19)}Z</dcterms:created></cp:coreProperties>`},
+    {name:"xl/workbook.xml",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="My games" sheetId="1" r:id="rId1"/><sheet name="By system" sheetId="2" r:id="rId2"/></sheets><definedNames><definedName name="_xlnm._FilterDatabase" localSheetId="0" hidden="1">'My games'!$A$1:$${col(XCOLS.length-1)}$${rows.length}</definedName></definedNames></workbook>`},
+    {name:"xl/_rels/workbook.xml.rels",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`},
+    {name:"xl/styles.xml",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE2DBF4"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="3"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="top"/></xf></cellXfs></styleSheet>`},
+    {name:"xl/worksheets/sheet1.xml",data:sheet},
+    {name:"xl/worksheets/sheet2.xml",data:sheet2},
+  ],"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+}
+
+// PDF catalogue: covers in a grid, grouped by system. Uses the PDF built-in Helvetica font.
+const HELV=[278,278,355,556,556,889,667,191,333,333,389,584,278,333,278,278,556,556,556,556,556,556,556,556,556,556,278,278,584,584,584,556,1015,667,667,722,722,667,611,778,722,278,500,667,556,833,722,778,667,778,722,667,611,722,667,944,667,667,611,278,278,278,469,556,333,556,556,500,556,556,278,556,556,222,222,500,222,833,556,556,556,556,333,500,278,556,500,722,500,500,500,334,260,334,584];
+const textW=(s,size,bold)=>{let w=0;for(const ch of String(s)){const c=ch.charCodeAt(0);w+=(c>=32&&c<127?HELV[c-32]:556)*(bold?1.06:1)}return w*size/1000};
+const WIN_EXTRA={"€":128,"‚":130,"„":132,"…":133,"‘":145,"’":146,"“":147,"”":148,"•":149,"–":150,"—":151,"™":153};
+function pdfText(s){
+  let out="";
+  for(const ch of String(s).normalize("NFC")){
+    let c=ch.charCodeAt(0);
+    if(WIN_EXTRA[ch])c=WIN_EXTRA[ch];else if(c>255||(c<32))c=c===9||c===10?32:63;
+    if(c===40||c===41||c===92)out+="\\"+ch;else if(c<128)out+=String.fromCharCode(c);else out+="\\"+c.toString(8).padStart(3,"0");
+  }
+  return "("+out+")";
+}
+function fitText(s,size,maxW,bold){s=String(s||"");if(textW(s,size,bold)<=maxW)return s;while(s.length>1&&textW(s+"…",size,bold)>maxW)s=s.slice(0,-1);return s.trimEnd()+"…"}
+function wrap2(s,size,maxW,bold){
+  const words=String(s||"").split(/\s+/).filter(Boolean);let l1="";
+  while(words.length&&textW((l1?l1+" ":"")+words[0],size,bold)<=maxW)l1+=(l1?" ":"")+words.shift();
+  if(!l1&&words.length)return [fitText(words.join(" "),size,maxW,bold)];
+  return words.length?[l1,fitText(words.join(" "),size,maxW,bold)]:[l1];
+}
+function jpegInfo(b){
+  if(b[0]!==0xFF||b[1]!==0xD8)return null;let i=2;
+  while(i<b.length-9){if(b[i]!==0xFF){i++;continue}const m=b[i+1];
+    if(m>=0xC0&&m<=0xCF&&m!==0xC4&&m!==0xC8&&m!==0xCC)return {h:(b[i+5]<<8)|b[i+6],w:(b[i+7]<<8)|b[i+8],n:b[i+9]};
+    i+=2+((b[i+2]<<8)|b[i+3]);}
+  return null;
+}
+async function coverBytes(g){
+  if(!g.cover)return null;
+  try{
+    let blob=null;
+    if(isWeb(g.cover)){
+      if(DESKTOP&&rgl.neu)blob=await rgl.fetchBlob(g.cover);
+      else{const r=await fetch(g.cover);if(r.ok)blob=await r.blob()}
+    }else{const parts=g.cover.split("/");const d=await dirFor(libDir,parts.slice(0,-1));blob=await (await d.getFileHandle(parts.at(-1))).getFile()}
+    if(!blob)return null;
+    let b=new Uint8Array(await blob.arrayBuffer());let info=jpegInfo(b);
+    if(!info||info.n!==3){b=new Uint8Array(await (await shrink(new File([b],"c"))).arrayBuffer());info=jpegInfo(b)}
+    return info&&info.n===3?{b,...info}:null;
+  }catch(e){return null}
+}
+async function buildPdf(onProgress){
+  const W=595.28,H=841.89,M=36,cols=4,gap=14,cw=(W-2*M-gap*(cols-1))/cols,ch=cw*4/3,capH=34,rowH=ch+capH+8;
+  const list=sortedGames(),enc=new TextEncoder();
+  const objs=[];const add=v=>{objs.push(v);return objs.length+2}; // ids 1 and 2 are the catalog and page tree
+  const F1=add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>");
+  const F2=add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>");
+  const pages=[];let ops=[],y=0,col=0,imgN=0;const imgRefs=[];
+  const ink="0.114 0.106 0.149 rg",muted="0.373 0.357 0.431 rg",accent="0.357 0.247 0.659 rg";
+  const newPage=()=>{if(ops.length)pages.push({ops,imgs:[...imgRefs]});ops=[];imgRefs.length=0;y=H-M;col=0};
+  const txt=(s,x,yy,size,bold,color)=>ops.push(`BT ${color||ink} /${bold?"F2":"F1"} ${size} Tf ${x.toFixed(2)} ${yy.toFixed(2)} Td ${pdfText(s)} Tj ET`);
+  newPage();
+  txt("Retro Game Library",M,y-22,22,true);
+  const nSys=new Set(list.map(g=>g.platform)).size;
+  txt(`My collection · ${list.length} game${list.length===1?"":"s"} on ${nSys} system${nSys===1?"":"s"} · ${new Date().toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"})}`,M,y-40,10,false,muted);
+  y-=60;
+  let lastSys=null,done=0;
+  const label={CIB:"Complete in box",Boxed:"Boxed",Loose:"Loose",Sealed:"Sealed",Digital:"Digital"};
+  for(const g of list){
+    if(g.platform!==lastSys){
+      if(col>0){y-=rowH;col=0}
+      if(y-26-rowH<M+20)newPage();
+      const n=list.filter(x=>x.platform===g.platform).length;
+      ops.push(`${accent} ${M} ${(y-20).toFixed(2)} ${(W-2*M).toFixed(2)} 1.2 re f`);
+      txt(fitText(g.platform,13,W-2*M-80,true),M,y-14,13,true);
+      txt(`${n} game${n===1?"":"s"}`,W-M-textW(`${n} game${n===1?"":"s"}`,10),y-14,10,false,muted);
+      y-=30;lastSys=g.platform;
+    }
+    if(col===0&&y-rowH<M+20)newPage();
+    const x=M+col*(cw+gap),top=y;
+    const img=await coverBytes(g);
+    if(img){
+      const id=add({img});imgN++;const name="Im"+imgN;imgRefs.push([name,id]);
+      const s=Math.min(cw/img.w,ch/img.h),iw=img.w*s,ih=img.h*s,ix=x+(cw-iw)/2,iy=top-ch+(ch-ih)/2;
+      ops.push(`q ${iw.toFixed(2)} 0 0 ${ih.toFixed(2)} ${ix.toFixed(2)} ${iy.toFixed(2)} cm /${name} Do Q`);
+    }else{
+      ops.push(`0.886 0.859 0.957 rg ${x.toFixed(2)} ${(top-ch).toFixed(2)} ${cw.toFixed(2)} ${ch.toFixed(2)} re f`);
+      wrap2(g.title,10,cw-16,true).forEach((l,i)=>txt(l,x+8,top-ch/2+6-i*13,10,true,muted));
+    }
+    const lines=wrap2(g.title,8.5,cw,true);
+    lines.forEach((l,i)=>txt(l,x,top-ch-11-i*10,8.5,true));
+    const meta=[g.complete==="Digital"?("Digital"+(g.store?" ("+g.store+")":"")):(label[g.complete]||g.complete),g.complete==="Digital"?"":g.region,g.year].filter(Boolean).join(" · ");
+    txt(fitText(meta,7.5,cw),x,top-ch-11-lines.length*10,7.5,false,muted);
+    col++;if(col===cols){col=0;y-=rowH}
+    done++;onProgress&&onProgress(done/list.length);
+  }
+  newPage();
+  // Page tree, footers, then write the file with its cross-reference table
+  const pageIds=[];
+  pages.forEach((p,i)=>{
+    p.ops.push(`BT 0.373 0.357 0.431 rg /F1 8 Tf ${M} 20 Td ${pdfText("Retro Game Library · @VirtualJames 2026")} Tj ET`);
+    const pn=`Page ${i+1} of ${pages.length}`;p.ops.push(`BT 0.373 0.357 0.431 rg /F1 8 Tf ${(W-M-textW(pn,8)).toFixed(2)} 20 Td ${pdfText(pn)} Tj ET`);
+    const content=p.ops.join("\n");
+    const cid=add(`<< /Length ${content.length} >>\nstream\n${content}\nendstream`);
+    const xo=p.imgs.length?` /XObject << ${p.imgs.map(([n,id])=>`/${n} ${id} 0 R`).join(" ")} >>`:"";
+    pageIds.push(add(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${W} ${H}] /Resources << /Font << /F1 ${F1} 0 R /F2 ${F2} 0 R >>${xo} >> /Contents ${cid} 0 R >>`));
+  });
+  const info=add(`<< /Title ${pdfText("Retro Game Library")} /Producer ${pdfText("Retro Game Library 1.0")} /Author ${pdfText("@VirtualJames 2026")} >>`);
+  const all=[`<< /Type /Catalog /Pages 2 0 R >>`,`<< /Type /Pages /Kids [${pageIds.map(i=>i+" 0 R").join(" ")}] /Count ${pageIds.length} >>`,...objs];
+  const chunks=[];let pos=0;const offsets=[];
+  const push=s=>{const b=typeof s==="string"?enc.encode(s):s;chunks.push(b);pos+=b.length};
+  push("%PDF-1.4\n%\xE2\xE3\xCF\xD3\n");
+  all.forEach((o,i)=>{
+    offsets.push(pos);push(`${i+1} 0 obj\n`);
+    if(o&&o.img){const im=o.img;push(`<< /Type /XObject /Subtype /Image /Width ${im.w} /Height ${im.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${im.b.length} >>\nstream\n`);push(im.b);push("\nendstream")}
+    else push(o);
+    push("\nendobj\n");
+  });
+  const xref=pos;
+  push(`xref\n0 ${all.length+1}\n0000000000 65535 f \n${offsets.map(o=>String(o).padStart(10,"0")+" 00000 n \n").join("")}trailer\n<< /Size ${all.length+1} /Root 1 0 R /Info ${info} 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
+  return new Blob(chunks,{type:"application/pdf"});
+}
+async function saveExport(name,blob,desc,mime,ext,statusId){
+  try{
+    if(window.showSaveFilePicker){
+      const fh=await window.showSaveFilePicker({suggestedName:name,types:[{description:desc,accept:{[mime]:["."+ext]}}]});
+      const w=await fh.createWritable();await w.write(blob);await w.close();setStatus(statusId,"Saved "+(fh._p||fh.name),"ok");
+    }else{
+      const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;a.click();setStatus(statusId,"Downloaded "+name,"ok");
+    }
+  }catch(e){if(e.name!=="AbortError")setStatus(statusId,"Couldn't save: "+e.message,"err");else setStatus(statusId,"")}
+}
+
+/* ---------- tools ---------- */
+const COLS=[["title","Title"],["platform","System"],["year","Year"],["publisher","Publisher"],["genre","Genre"],["region","Region"],["complete","What I have"],["store","Store"],["cond","Condition"],["acquired","Date acquired"],["notes","Notes"],["description","About the game"],["cover","Cover"]];
+function toCSV(){
+  const q=v=>{v=v==null?"":String(v);return /[",\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
+  const rows=[...games].sort((a,b)=>a.platform.localeCompare(b.platform)||a.title.localeCompare(b.title));
+  return [COLS.map(c=>c[1]).join(",")].concat(rows.map(g=>COLS.map(c=>q(g[c[0]])).join(","))).join("\r\n");
+}
+function setStatus(id,msg,kind){const el=$(id);el.className="status"+(kind?" "+kind:"");el.textContent=msg}
+async function refreshTools(){
+  $("libFolderName").textContent=where(libDir);$("fLib").textContent=where(libDir)||"none";
+  $("fillBtn").disabled=!dbHandle;
+  const missing=games.filter(g=>!g.cover||!g.description).length;
+  const f=await dbFile();
+  $("dbStatusText").textContent=f?`Using ${f.name}, downloaded ${new Date(f.lastModified).toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"})}. ${missing} game${missing===1?" is":"s are"} missing box art or a description. ${DESKTOP?"The app tells you when a newer one is out.":"Download a newer copy now and then to get games added to the database since."}`
+    :DESKTOP?"The game database isn't downloaded yet. Click Update the database now to get box art and descriptions.":"No database chosen. Download Metadata.zip from the LaunchBox Games Database, then choose it here to get box art and descriptions.";
+}
+$("openTools").onclick=()=>{refreshTools();refreshLb();$("toolsScrim").hidden=false};
+$("toolsClose").onclick=()=>$("toolsScrim").hidden=true;
+$("aboutLink").onclick=()=>{refreshTools();refreshLb();$("toolsScrim").hidden=false;setTimeout(()=>$("about").scrollIntoView({block:"start"}),50)};
+$("xlsxBtn").onclick=()=>{if(!games.length){setStatus("csvStatus","Add some games first.","err");return}saveExport(`Retro Game Library ${stamp()}.xlsx`,buildXlsx(),"Excel workbook","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet","xlsx","csvStatus")};
+$("pdfBtn").onclick=async()=>{
+  if(!games.length){setStatus("csvStatus","Add some games first.","err");return}
+  const b=$("pdfBtn"),prog=$("pdfProg"),bar=prog.querySelector("i");b.disabled=true;prog.hidden=false;setStatus("csvStatus","Making the PDF…");
+  try{const blob=await buildPdf(p=>bar.style.width=Math.round(p*100)+"%");prog.hidden=true;await saveExport(`Retro Game Library ${stamp()}.pdf`,blob,"PDF document","application/pdf","pdf","csvStatus")}
+  catch(e){setStatus("csvStatus","Couldn't make the PDF: "+e.message,"err")}
+  finally{b.disabled=false;prog.hidden=true;bar.style.width="0"}
+};
+$("csvBtn").onclick=async()=>{
+  const name=`Retro Game Library ${stamp()}.csv`, data="\ufeff"+toCSV();
+  try{
+    if(window.showSaveFilePicker){
+      const fh=await window.showSaveFilePicker({suggestedName:name,types:[{description:"CSV spreadsheet",accept:{"text/csv":[".csv"]}}]});
+      const w=await fh.createWritable();await w.write(data);await w.close();setStatus("csvStatus","Saved "+fh.name,"ok");
+    }else{
+      const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([data],{type:"text/csv"}));a.download=name;a.click();setStatus("csvStatus","Downloaded "+name,"ok");
+    }
+  }catch(e){if(e.name!=="AbortError")setStatus("csvStatus","Couldn't save: "+e.message,"err")}
+};
+$("pickDb2").onclick=async()=>{try{await pickDatabase();await loadPlatformNames();refreshTools();checkDbAge();setStatus("fillStatus","Now using "+dbHandle.name,"ok")}catch(e){if(e.name!=="AbortError")setStatus("fillStatus",e.message,"err")}};
+$("fillBtn").onclick=async()=>{
+  const todo=games.filter(g=>!g.cover||!g.description);
+  if(!todo.length){setStatus("fillStatus","Every game already has box art and a description.","ok");return}
+  const b=$("fillBtn");b.disabled=true;const prog=$("fillProg");prog.hidden=false;
+  const bar=prog.querySelector("i");
+  try{
+    setStatus("fillStatus","Reading the database…");
+    await loadPlatforms([...new Set(todo.map(g=>g.platform))],p=>bar.style.width=Math.round(p*100)+"%");
+    let covers=0,descs=0;const missed=[];
+    for(const g of todo){
+      let m=await exactMatch(g.platform,g.title,g.region);
+      if(!m){const r=await dbSearch(g.platform,g.title,g.region,3);if(r.length&&r[0].score<=2.5&&(r.length===1||r[1].score>r[0].score))m=r[0].g}
+      if(!m){missed.push(g.title);continue}
+      if(!g.cover&&m.covers.length){g.cover=IMG_BASE+sortCovers(m,g.region)[0].file;covers++;await localise(g,m.names)}
+      if(!g.description&&m.overview){g.description=m.overview;descs++}
+      Object.assign(g,{dbId:m.id,year:g.year||m.year,developer:g.developer||m.developer,publisher:g.publisher||m.publisher,genre:g.genre||m.genre,updatedAt:Date.now()});
+    }
+    render();scheduleSave();
+    setStatus("fillStatus",`Added ${covers} cover${covers===1?"":"s"} and ${descs} description${descs===1?"":"s"}.`+(missed.length?` No exact match for: ${missed.slice(0,8).join(", ")}${missed.length>8?"…":""}. Open those games and type the title to pick from close matches.`:""),"ok");
+  }catch(e){setStatus("fillStatus","Couldn't read the database file: "+e.message,"err")}
+  finally{b.disabled=false;prog.hidden=true;bar.style.width="0";refreshTools()}
+};
+function refreshLb(){
+  const web=games.filter(g=>isWeb(g.cover)).length;
+  $("connectLb").textContent=lbDir?"Change LaunchBox folder…":"Connect LaunchBox Images folder…";
+  $("localiseBtn").hidden=!lbDir&&!DESKTOP;
+  if(DESKTOP){const w=games.filter(g=>isWeb(g.cover)).length;setStatus("lbStatus",w?`${w} cover${w===1?" is":"s are"} still shown from the internet.`:"All your covers are saved in your library folder.",w?"":"ok")}
+  else if(lbDir)setStatus("lbStatus",`Connected to “${lbDir.name}”. ${web} cover${web===1?" is":"s are"} still shown from the internet.`,"");
+  else if(lbNeedsAsk)setStatus("lbStatus","Click Connect to allow access to your LaunchBox folder again.","");
+}
+$("connectLb").onclick=async()=>{
+  try{
+    let d=await window.showDirectoryPicker({id:"rgl-lb",mode:"read"});
+    try{d=await d.getDirectoryHandle("Images")}catch(e){}
+    lbDir=d;lbNeedsAsk=false;await idb.set("lb",d);lbIndex.clear();refreshLb();
+  }catch(e){if(e.name!=="AbortError")setStatus("lbStatus","That folder can't be used: "+e.message,"err")}
+};
+$("localiseBtn").onclick=async()=>{
+  const todo=games.filter(g=>isWeb(g.cover));
+  if(!todo.length){setStatus("lbStatus","All your covers are already saved in your library folder.","ok");return}
+  const b=$("localiseBtn");b.disabled=true;let done=0,i=0;
+  for(const g of todo){i++;setStatus("lbStatus",`Checking ${i} of ${todo.length}: ${g.title}…`);
+    let names=[];if(dbHandle&&g.dbId){try{const [list]=await loadPlatforms([g.platform]);const m=list.find(x=>x.id===g.dbId);if(m)names=m.names}catch(e){}}
+    if(await localise(g,names)){g.updatedAt=Date.now();done++}}
+  render();scheduleSave();b.disabled=false;
+  setStatus("lbStatus",`Copied ${done} of ${todo.length} covers into your library folder.`+(done<todo.length?(DESKTOP?" The rest couldn't be downloaded. Check you're online and try again.":" The rest aren't in your LaunchBox Images folder, so they still show from the internet."):""),"ok");
+};
+$("restoreBtn").onclick=()=>$("restoreFile").click();
+$("restoreFile").onchange=async e=>{
+  const f=e.target.files[0];e.target.value="";if(!f)return;
+  let data;try{data=JSON.parse(await f.text())}catch(err){setStatus("restoreStatus","That file isn't a valid backup.","err");return}
+  const list=(Array.isArray(data)?data:data?.games||[]).filter(g=>g&&g.title&&g.platform);
+  if(!list.length){setStatus("restoreStatus","No games found in that file.","err");return}
+  const box=$("restoreConfirm");box.hidden=false;
+  box.innerHTML=`Restore <b>${list.length}</b> games from <b>${esc(f.name)}</b>? <button class="btn primary" id="rsYes">Restore</button> <button class="btn ghost" id="rsNo">Cancel</button>`;
+  $("rsNo").onclick=()=>box.hidden=true;
+  $("rsYes").onclick=()=>{
+    box.hidden=true;
+    for(const g of list){const id=g.id||newId();const i=games.findIndex(x=>x.id===id);const row={...g,id};if(i>=0)games[i]=row;else games.push(row)}
+    render();scheduleSave();setStatus("restoreStatus",`Restored ${list.length} games.`,"ok");
+  };
+};
+$("dlDb").onclick=()=>runDbUpdate($("dlDb"),$("gateProg"),(t,ok,err)=>{$("dbDone").textContent=ok?"✓ Downloaded":"";$("gateErr").textContent=err?t:"";if(!ok&&!err)$("dlDb").textContent=t;else $("dlDb").textContent=ok?"Download again":"Download the game database"});
+$("noticeUpdate").onclick=()=>runDbUpdate($("noticeUpdate"),null,(t,ok,err)=>{$("dbNoticeText").textContent=t;if(ok){toast("Game database updated");setTimeout(checkDbAge,1500)}});
+$("updateDb").onclick=()=>runDbUpdate($("updateDb"),$("fillProg"),(t,ok,err)=>{setStatus("fillStatus",t,ok?"ok":err?"err":"");if(ok)refreshTools()});
+$("noticeHide").onclick=async()=>{const f=await dbFile();if(f)ls.set("rgl-db-snooze",String(f.lastModified));$("dbNotice").hidden=true};
+$("noticePick").onclick=async()=>{try{await pickDatabase();await loadPlatformNames();checkDbAge();toast("Now using the new database")}catch(e){if(e.name!=="AbortError")toast(e.message)}};
+$("changeFolders").onclick=()=>{$("toolsScrim").hidden=true;showGate(false)};
+$("whereBtn").onclick=()=>showGate(false);
+
+(window.rglReady||Promise.resolve()).then(boot);
+</script>
+</body>
+</html>

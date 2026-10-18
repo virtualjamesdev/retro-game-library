@@ -1,0 +1,22 @@
+# Build output and tools
+release/
+lite/dist/
+lite/bin/
+lite/node_modules/
+lite/resources/index.html
+lite/.tmp/
+node_modules/
+
+# Never commit game data or personal collections
+Metadata.zip
+Metadata.xml
+*.zip.part
+library.json
+backups/
+covers/
+Retro Game Library Data/
+settings.json
+
+# OS clutter
+.DS_Store
+Thumbs.db

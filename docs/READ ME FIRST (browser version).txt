@@ -1,0 +1,141 @@
+RETRO GAME LIBRARY
+Catalogue the games you own: carts, tapes, discs, boxes and digital copies.
+Box art and descriptions come from the free LaunchBox Games Database.
+You don't need LaunchBox installed.
+
+
+WHAT YOU NEED
+- Windows, Mac or Linux with Google Chrome or Microsoft Edge.
+  (Firefox and Safari can't save to a folder, so the app won't work in them.)
+- An internet connection to show box art.
+- About 100 MB of space for the free game database file.
+
+
+SETTING UP (ONE TIME, ABOUT 2 MINUTES)
+1. Make a folder for your library, for example "Retro Game Library" in Documents.
+   Tip: put it in Google Drive, OneDrive or Dropbox and your collection is
+   backed up online automatically.
+2. Put "Retro Game Library.html" in that folder.
+3. Open "Retro Game Library.html" with Chrome or Edge.
+   If it opens in another browser: right-click the file, choose Open with,
+   and pick Chrome or Edge.
+4. Step 1 on screen: click "Choose folder…" and pick the folder from step 1.
+   When the browser asks, click "Edit files" / "Allow".
+5. Step 2 on screen: click "Download Metadata.zip". This downloads the
+   LaunchBox Games Database. When it has finished, click
+   "Choose Metadata.zip…" and pick the file from your Downloads folder.
+   (You can skip this, but then you'll add pictures by hand.)
+6. Click "Open my library".
+
+Next time, just open the file and click "Open my library". Your browser may
+ask you to allow access to the folder again.
+
+
+ADDING A GAME
+1. Click "+ Add game".
+2. Pick the system from the list.
+3. Start typing the title. Matching games appear with their box art.
+   Pick yours and the cover, description, year and publisher fill in by
+   themselves. If you type the full title and save, it's looked up for you.
+4. Set what you have (loose, boxed, complete in box, sealed
+   or digital), the condition
+   and any notes, then click "Save game".
+
+Bought it digitally (GOG, Steam, eShop and so on)? Choose "Digital" under
+"What you have" and pick the store.
+
+If a game isn't in the database, save it anyway and drop your own photo of
+the box onto the picture area.
+
+Got two copies? Open the game and click "+ Another copy".
+Own it on other machines too? Before saving, pick each extra system under
+"Also own it on" and click "Add system". Each gets its own entry and box art.
+Found another version later? Open the game and click "+ Same game, another system".
+Use the drop-down next to the search box to show only duplicates, games on
+several systems, physical or digital games only, or games missing box art.
+
+
+BACKUPS
+Every change is saved straight away into your library folder:
+- library.json                 your full collection
+- Retro Game Library.csv       the same list as a spreadsheet (Excel, Google Sheets)
+- covers                       pictures you added yourself
+- backups                      a dated copy for each day you make changes
+
+To restore, open "Backup & tools" and choose a file from the backups folder.
+Under "Export" you can also save a PDF catalogue, an Excel workbook or a CSV.
+(In the browser version, box art that is only shown from the internet appears
+as a placeholder in the PDF. The desktop apps save every cover, so their PDFs
+have all the pictures.)
+
+
+KEEPING THE DATABASE UP TO DATE
+New games are added to the LaunchBox Games Database all the time. Now and
+then, open "Backup & tools", click "Download latest", then "Choose database
+file…" and pick the new Metadata.zip.
+"Fill in missing covers & descriptions" then updates any games that were
+added before you had the database, or that weren't in it yet.
+
+
+MOVING TO A NEW PC
+Copy your library folder across (or let Google Drive / OneDrive sync it),
+open "Retro Game Library.html" and choose that folder in step 1.
+
+
+QUESTIONS PEOPLE ASK
+
+How do I make sure my collection is backed up to Google Drive or OneDrive?
+  Install Google Drive for desktop or OneDrive (OneDrive comes with Windows).
+  Then make your library folder inside the synced folder, for example
+  "G:\My Drive\Retro Game Library" or "C:\Users\you\OneDrive\Retro Game Library",
+  and choose that folder in step 1. The app saves to the folder and the
+  Drive/OneDrive app uploads every change for you. The top of the app shows
+  which folder it is "Saving to".
+
+Can I move my library to another folder later?
+  Yes. Click "Saving to …" at the top, then "Choose a different folder…".
+  If the new folder is empty, your whole library (including your own
+  pictures) is copied into it.
+
+How do I know if there's a newer game database?
+  LaunchBox updates its database every day. When your copy is more than
+  30 days old, the app shows a reminder with a "Download latest" button.
+
+Does the database download every time?
+  No. You download Metadata.zip once and the app reads it from your PC.
+  Only download it again when you want newer games.
+
+Are the covers stored on my PC?
+  Pictures you add yourself are saved in your library folder. Box art from
+  the database is shown straight from LaunchBox's picture server, and your
+  browser keeps a cached copy, so it needs the internet the first time it's
+  shown. (Browsers don't let a web page save pictures from another website,
+  which is why it can't simply download them.)
+
+I have LaunchBox. Can the covers be saved on my PC?
+  Yes. Open "Backup & tools" and click "Connect LaunchBox Images folder…",
+  then pick LaunchBox's Images folder (for example F:\LaunchBox\Images).
+  From then on, any cover LaunchBox has already downloaded is copied into
+  your library folder when you add a game, so it works offline and is
+  backed up with everything else. "Copy covers to my library folder" does
+  the same for games you've already added.
+
+
+PRIVACY
+Everything stays on your computer. The app has no account, no server and
+no tracking. It only goes online to show box art from LaunchBox's picture
+server.
+
+
+ABOUT
+Retro Game Library is for cataloguing the games you own. It isn't
+a game launcher and is in no way a replacement for LaunchBox, which is
+brilliant for organising and playing your games on PC. Check it out at
+launchbox-app.com.
+
+CREDITS
+Retro Game Library 1.0  ·  @VirtualJames 2026
+Game information and box art: LaunchBox Games Database
+(gamesdb.launchbox-app.com), built by the LaunchBox community.
+This app isn't made by, or affiliated with, LaunchBox.
+Made with Claude Code.
