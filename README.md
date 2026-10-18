@@ -67,7 +67,7 @@ Found a bug or have an idea? [Open an issue](../../issues) and say which system 
 
 ## Credits
 
-Retro Game Library 1.0 · @VirtualJames 2026
+Retro Game Library 1.0 · VirtualJames 2026 · Follow [virtualjames on X](https://x.com/virtualjames) for updates
 
 Made with [Claude Code](https://claude.com/claude-code). I didn't code this one myself: I designed it, tested it and told Claude what my collection needed.
 
