@@ -34,6 +34,12 @@ Bought it digitally (GOG, Steam, eShop and so on)? Choose "Digital" under
 "What you have" and pick the store.
 Not in the database? Save it anyway and drop your own photo of the box onto
 the picture area.
+No box art? Click "Find online…" to search the web for it. Right-click the
+picture you want, choose "Copy image", then press Ctrl+V (Cmd+V on a Mac)
+in the app. You can also drag a picture straight from a web page.
+ZX Spectrum and ZX81: rare games LaunchBox doesn't have are also looked up
+in ZXDB, the Spectrum community's database, with cover scans and loading
+screens.
 Two copies? Open the game and click "+ Another copy".
 Found another version later? Open the game and click "+ Same game, another
 system".
@@ -83,10 +89,12 @@ brilliant for organising and playing your games on PC. Check it out at
 launchbox-app.com.
 
 CREDITS
-Retro Game Library 1.0  ·  @VirtualJames 2026
+Retro Game Library 1.1  ·  @VirtualJames 2026
 Game information and box art: LaunchBox Games Database
 (gamesdb.launchbox-app.com), built by the LaunchBox community.
 This app isn't made by, or affiliated with, LaunchBox.
+ZX Spectrum and ZX81 games that LaunchBox doesn't have are looked up in
+ZXDB, the open Spectrum database (zxinfo.dk, spectrumcomputing.co.uk).
 Made with Claude Code. Built with Neutralinojs.
 """
 PORTABLE = """

@@ -268,7 +268,7 @@ html:not(.desktop) .app-only{display:none!important}
     <div><button class="btn primary" id="startBtn" disabled>Open my library</button></div>
   </div>
   <p class="gerr" id="gateErr"></p>
-  <footer class="foot">Retro Game Library 1.0 · @VirtualJames 2026</footer>
+  <footer class="foot">Retro Game Library 1.1 · @VirtualJames 2026</footer>
 </div>
 
 <div class="wrap" id="app" hidden>
@@ -319,7 +319,7 @@ html:not(.desktop) .app-only{display:none!important}
   </div>
   <div class="chips" id="chips"></div>
   <main id="view"></main>
-  <footer class="foot">Retro Game Library 1.0 · @VirtualJames 2026 · <button class="linkbtn" id="aboutLink">About</button></footer>
+  <footer class="foot">Retro Game Library 1.1 · @VirtualJames 2026 · <button class="linkbtn" id="aboutLink">About</button></footer>
 </div>
 
 <!-- Add / edit -->
@@ -330,12 +330,13 @@ html:not(.desktop) .app-only{display:none!important}
       <div class="form">
         <div>
           <div class="drop" id="drop" tabindex="0" role="button" aria-label="Choose cover image">
-            <span id="dropText">Pick the system and type the title. Box art appears here.<br><br>Or drop a picture in.</span>
+            <span id="dropText">Pick the system and type the title. Box art appears here.<br><br>Or drop or paste a picture in.</span>
           </div>
           <div class="alts" id="alts" hidden><button type="button" class="btn sm" id="altPrev" aria-label="Previous picture">‹</button><span id="altLabel"></span><button type="button" class="btn sm" id="altNext" aria-label="Next picture">›</button></div>
           <p class="lbnote" id="lbNote"></p>
           <div class="coverbtns">
             <button type="button" class="btn sm" id="chooseCover">Choose picture…</button>
+            <button type="button" class="btn sm" id="findCover" title="Search the web for box art, then copy a picture and paste it here">Find online…</button>
             <button type="button" class="btn sm ghost" id="removeCover" hidden>Remove</button>
           </div>
           <input type="file" id="coverFile" accept="image/*" hidden>
@@ -446,7 +447,8 @@ html:not(.desktop) .app-only{display:none!important}
         <p>Retro Game Library is for cataloguing the games you own: carts, tapes, discs, boxes and digital copies. It isn't a game launcher and doesn't play anything.</p>
         <p>It's in no way a replacement for <b>LaunchBox</b>, which is brilliant for organising and playing your games on PC. If you haven't tried it, go and check it out at <a href="https://www.launchbox-app.com/" target="_blank" rel="noopener">launchbox-app.com</a>.</p>
         <p>Game information and box art come from the LaunchBox Games Database, built by the LaunchBox community. This app isn't made by, or affiliated with, LaunchBox.</p>
-        <p>Retro Game Library 1.0 · @VirtualJames 2026 · Made with Claude Code</p>
+        <p>For the ZX Spectrum and ZX81, games LaunchBox doesn't have are looked up in <b>ZXDB</b>, the open Spectrum database, through <a href="https://zxinfo.dk/" target="_blank" rel="noopener">ZXInfo</a> and <a href="https://spectrumcomputing.co.uk/" target="_blank" rel="noopener">Spectrum Computing</a>. Thanks to everyone who keeps it going.</p>
+        <p>Retro Game Library 1.1 · @VirtualJames 2026 · Made with Claude Code</p>
       </section>
     </div>
   </div>
@@ -463,6 +465,7 @@ const stamp=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth
 const newId=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
 function toast(msg){const t=$("toast");t.textContent=msg;t.hidden=false;clearTimeout(toast._t);toast._t=setTimeout(()=>t.hidden=true,2800)}
 const IMG_BASE=window.RGL_IMG_BASE||"https://images.launchbox-app.com/";
+const imgURL=f=>/^https?:\/\//.test(f)?f:IMG_BASE+f;
 const DB_URL=window.RGL_DB_URL||"https://gamesdb.launchbox-app.com/Metadata.zip";
 
 /* ---------- Desktop app: real files on disk instead of browser folder access ---------- */
@@ -792,6 +795,51 @@ async function dbSearch(plat,q,region,limit=8){
   return res.sort((a,b)=>a.score-b.score||(b.g.covers.length>0)-(a.g.covers.length>0)||a.g.title.length-b.g.title.length||a.g.title.localeCompare(b.g.title)).slice(0,limit);
 }
 
+/* ---------- ZXDB (ZX Spectrum and ZX81), via the open ZXInfo API ---------- */
+const ZX_API="https://api.zxinfo.dk/v3/", ZX_MEDIA="https://zxinfo.dk/media";
+const ZX_PLATS={"Sinclair ZX Spectrum":m=>!m||/^(ZX-Spectrum|Timex|Pentagon|Scorpion)/i.test(m),"Sinclair ZX-81":m=>/^ZX8[01]/i.test(m||"")};
+const isZx=p=>!!ZX_PLATS[p];
+const srcCredit=id=>String(id||"").startsWith("zxdb:")?"· from ZXDB (Spectrum Computing / ZXInfo)":"· from the LaunchBox Games Database";
+const zxCache=new Map();
+function zxGame(src,id){
+  const pubs=(src.publishers||[]).map(p=>p.name).filter(Boolean);
+  const auth=(src.authors||[]).map(a=>a.name).filter(Boolean);
+  const year=src.originalYearOfRelease?String(src.originalYearOfRelease):"";
+  const covers=[];
+  for(const d of src.additionalDownloads||[])if(/^Inlay - Front|^Box - Front/i.test(d.type||"")&&/\.(jpe?g|png|gif)$/i.test(d.path||""))covers.push({file:ZX_MEDIA+d.path,region:"",rank:0});
+  for(const sc of src.screens||[])if(/Loading screen/i.test(sc.type||"")&&/\.(png|gif|jpe?g)$/i.test(sc.url||""))covers.push({file:ZX_MEDIA+sc.url,region:"Loading screen",rank:1});
+  const bits=[];
+  const what=src.genre?src.genre.replace(/^([^:]+):\s*/,(m,a)=>""+a+": "):"A program";
+  bits.push(`${what} for the ${src.machineType||"ZX Spectrum"}`+(pubs.length?`, published by ${pubs.join(" and ")}`:"")+(year?` in ${year}`:"")+".");
+  const auth2=auth.filter(n=>!pubs.includes(n));if(auth2.length)bits.push(`Written by ${auth2.slice(0,4).join(", ")}${auth2.length>4?" and others":""}.`);
+  return {id:"zxdb:"+id,source:"zxdb",title:src.title,year,publisher:pubs[0]||"",developer:auth[0]||"",genre:src.genreSubType||src.genreType||"",
+    overview:bits.join(" "),covers,names:[src.title],norms:[norm(src.title)]};
+}
+async function zxSearch(plat,q,limit=8){
+  const ok=ZX_PLATS[plat];const n=norm(q);if(!ok||!n||n.length<2)return [];
+  const key=plat+"|"+q.toLowerCase();
+  if(!zxCache.has(key))zxCache.set(key,(async()=>{
+    const url=`${ZX_API}search?query=${encodeURIComponent(cleanTitle(q)||q)}&mode=compact&size=40&sort=rel_desc&contenttype=SOFTWARE`;
+    const r=await fetch(url);if(!r.ok)throw new Error("ZXDB "+r.status);
+    const j=await r.json();return (j.hits?.hits||[]).filter(h=>ok(h._source?.machineType)).map(h=>zxGame(h._source,h._id));
+  })().catch(e=>{zxCache.delete(key);return []}));
+  const list=await zxCache.get(key);
+  const words=cleanTitle(q).split(/\s+/).map(w=>w.replace(/[^a-z0-9]/g,"")).filter(w=>w.length>1&&w!=="of"&&w!=="the");
+  const res=[];
+  for(const g of list){const k=g.norms[0];let s;
+    if(k===n)s=0;else if(k.startsWith(n))s=1;else if(k.includes(n))s=2;else if(k.length>=5&&n.includes(k))s=2.5;else if(words.length&&words.every(w=>k.includes(w)))s=3;else continue;
+    res.push({g,score:s})}
+  return res.sort((a,b)=>a.score-b.score||(b.g.covers.length>0)-(a.g.covers.length>0)||a.g.title.length-b.g.title.length).slice(0,limit);
+}
+// LaunchBox first, then ZXDB for anything LaunchBox doesn't have (or has without a cover).
+async function bothSearch(plat,q,region,limit=8){
+  const [lb,zx]=await Promise.all([dbHandle?dbSearch(plat,q,region,limit).catch(e=>{throw e}):Promise.resolve([]),isZx(plat)?zxSearch(plat,q,limit):Promise.resolve([])]);
+  if(!zx.length)return lb;
+  const have=new Map(lb.map(r=>[norm(r.g.title),r]));
+  const extra=zx.filter(r=>{const h=have.get(norm(r.g.title));return !h||!h.g.covers.length});
+  return lb.filter(r=>!(r.g.covers.length===0&&extra.some(x=>norm(x.g.title)===norm(r.g.title)))).concat(extra).sort((a,b)=>a.score-b.score).slice(0,limit);
+}
+
 /* ---------- LaunchBox Images folder (optional, for local copies) ---------- */
 const lbIndex=new Map();
 function lbIndexFor(plat){
@@ -912,7 +960,7 @@ function openEdit(g){
   $("fTitle").value=g?.title||"";setPlat(g?.platform||state.plat||"");
   $("fRegion").value=g?.region||"PAL";$("fComplete").value=g?.complete||"Loose";
   $("fCond").value=g?.cond||"Good";$("fStore").value=g?.store||"GOG";syncDigital();$("fDate").value=g?.acquired||"";$("fNotes").value=g?.notes||"";
-  $("fDesc").value=g?.description||"";$("descCredit").textContent=g?.dbId?"· from the LaunchBox Games Database":"";setMeta(g);
+  $("fDesc").value=g?.description||"";$("descCredit").textContent=g?.dbId?srcCredit(g.dbId):"";setMeta(g);
   setDrop("");if(g?.cover)coverURL(g.cover).then(u=>{if(editing===g&&u&&!pending)setDrop(u)});
   showAlts();setNote(!dbHandle?"No game database chosen, so box art won't be found automatically. Set it up under Backup & tools.":"");
   $("sugg").hidden=true;
@@ -942,7 +990,7 @@ function useAlt(i){
   if(!alts.length)return;
   altIdx=(i+alts.length)%alts.length;
   if(pending?.preview)URL.revokeObjectURL(pending.preview);
-  pending={url:IMG_BASE+alts[altIdx].file};removeCoverFlag=false;
+  pending={url:imgURL(alts[altIdx].file)};removeCoverFlag=false;
   setDrop(pending.url);showAlts();
 }
 $("altPrev").onclick=()=>useAlt(altIdx-1);
@@ -950,9 +998,9 @@ $("altNext").onclick=()=>useAlt(altIdx+1);
 function applyMatch(g,auto){
   $("fTitle").value=g.title;$("sugg").hidden=true;picked=g;
   if(g.overview&&(!$("fDesc").value.trim()||auto!=="keepdesc"))$("fDesc").value=g.overview;
-  $("descCredit").textContent="· from the LaunchBox Games Database";setMeta(g);
+  $("descCredit").textContent=srcCredit(g.id);setMeta(g);
   alts=sortCovers(g,$("fRegion").value);altIdx=0;
-  if(alts.length){useAlt(0);setNote(auto?"Box art and description found.":"Box art from the LaunchBox Games Database.",true)}
+  if(alts.length){useAlt(0);setNote(auto?(g.source==="zxdb"?"Cover found in ZXDB.":"Box art and description found."):(g.source==="zxdb"?"Cover from ZXDB, the Spectrum database.":"Box art from the LaunchBox Games Database."),true)}
   else setNote("The database has this game but no front box picture. Drop one in if you have it.");
 }
 
@@ -969,16 +1017,16 @@ function drawExtraSys(){
 }
 async function updateSugg(){
   const plat=platVal(), q=$("fTitle").value.trim(), box=$("sugg");
-  if(!dbHandle||q.length<2){box.hidden=true;return}
+  if((!dbHandle&&!isZx(plat))||q.length<2){box.hidden=true;return}
   if(!plat){box.hidden=false;box.innerHTML=`<div class="msg">Pick the system first to search the database.</div>`;return}
-  let res;try{res=await dbSearch(plat,q,$("fRegion").value)}catch(e){box.hidden=false;box.innerHTML=`<div class="msg">Couldn't read the database file: ${esc(e.message)}</div>`;return}
+  let res;try{res=await bothSearch(plat,q,$("fRegion").value)}catch(e){box.hidden=false;box.innerHTML=`<div class="msg">Couldn't read the database file: ${esc(e.message)}</div>`;return}
   if($("lbNote").textContent.startsWith("Loading"))setNote("");
   if(q!==$("fTitle").value.trim())return;
   suggList=res;suggOn=-1;
   if(!res.length){box.hidden=false;box.innerHTML=`<div class="msg">Nothing in the database for “${esc(q)}” on ${esc(plat)}. You can still save it, or drop a picture in.</div>`;return}
   box.hidden=false;
   box.innerHTML=res.map(({g},i)=>{const c=sortCovers(g,$("fRegion").value)[0];
-    return `<button type="button" data-i="${i}"><span class="th">${c?`<img src="${esc(IMG_BASE+c.file)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:""}</span><span><b>${esc(g.title)}</b><small>${esc([g.year,g.publisher].filter(Boolean).join(" · "))}${g.covers.length?"":" · no box picture"}</small></span></button>`}).join("");
+    return `<button type="button" data-i="${i}"><span class="th">${c?`<img src="${esc(imgURL(c.file))}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:""}</span><span><b>${esc(g.title)}</b><small>${esc([g.year,g.publisher].filter(Boolean).join(" · "))}${g.covers.length?"":" · no box picture"}${g.source==="zxdb"?" · ZXDB":""}</small></span></button>`}).join("");
 }
 $("fTitle").oninput=()=>{picked=null;typed=true;clearTimeout(suggTimer);suggTimer=setTimeout(updateSugg,160)};
 $("fTitle").onfocus=()=>{if(typed&&$("fTitle").value.trim().length>1&&!picked)updateSugg()};
@@ -992,14 +1040,14 @@ $("sugg").onmousedown=e=>e.preventDefault();
 $("sugg").onclick=e=>{const b=e.target.closest("button[data-i]");if(b)applyMatch(suggList[+b.dataset.i].g)};
 // Automatic check when the title or system is settled
 async function exactMatch(plat,title,region){
-  const res=await dbSearch(plat,title,region,4);const ex=res.filter(r=>r.score===0);
+  const res=await bothSearch(plat,title,region,4);const ex=res.filter(r=>r.score===0);
   return ex.length===1?ex[0].g:ex.length>1?(ex.find(r=>r.g.covers.length)||ex[0]).g:null;
 }
 async function autoCheck(){
   $("sugg").hidden=true;
   if($("editScrim").hidden||picked)return;
   const plat=platVal(), q=$("fTitle").value.trim();
-  if(!dbHandle||!plat||!q||pending||inheritCover)return;
+  if((!dbHandle&&!isZx(plat))||!plat||!q||pending||inheritCover)return;
   if(editing?.cover&&!removeCoverFlag&&editing.platform===plat&&editing.description)return;
   let g;try{g=await exactMatch(plat,q,$("fRegion").value)}catch(e){setNote("Couldn't read the database file: "+e.message);return}
   if($("editScrim").hidden||plat!==platVal()||q!==$("fTitle").value.trim()||pending||picked)return;
@@ -1023,8 +1071,27 @@ drop.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();drop.clic
 $("coverFile").onchange=e=>{const f=e.target.files[0];e.target.value="";if(f){takeImage(f);setNote("")}};
 drop.ondragover=e=>{e.preventDefault();drop.classList.add("over")};
 drop.ondragleave=()=>drop.classList.remove("over");
-drop.ondrop=e=>{e.preventDefault();drop.classList.remove("over");const f=e.dataTransfer.files[0];if(f){takeImage(f);setNote("")}};
-document.addEventListener("paste",e=>{if($("editScrim").hidden)return;const f=[...(e.clipboardData?.files||[])].find(f=>f.type.startsWith("image/"));if(f){e.preventDefault();takeImage(f)}});
+drop.ondrop=e=>{e.preventDefault();drop.classList.remove("over");const f=e.dataTransfer.files[0];if(f&&f.type.startsWith("image/")){takeImage(f);setNote("");return}
+  const u=(e.dataTransfer.getData("text/uri-list")||e.dataTransfer.getData("text/plain")||"").split(/\r?\n/).find(x=>/^https?:/i.test(x));if(u)takeImageURL(u.trim())};
+document.addEventListener("paste",e=>{if($("editScrim").hidden)return;const f=[...(e.clipboardData?.files||[])].find(f=>f.type.startsWith("image/"));if(f){e.preventDefault();takeImage(f);setNote("Picture pasted in.",true);return}
+  const t=(e.clipboardData?.getData("text")||"").trim();const tag=document.activeElement?.tagName;
+  if(/^https?:\/\/\S+$/i.test(t)&&!(tag==="INPUT"||tag==="TEXTAREA")){e.preventDefault();takeImageURL(t)}});
+// A picture dragged from a web page, or a copied picture link: fetch it and use it as the cover.
+async function takeImageURL(u){
+  setNote("Getting that picture…");
+  try{let b=null;
+    if(DESKTOP&&rgl.neu)b=await rgl.fetchBlob(u);else{const r=await fetch(u);if(r.ok)b=await r.blob()}
+    if(!b||!/^image\//.test(b.type||"image/"))throw new Error("not a picture");
+    await takeImage(b.type?b:new Blob([b],{type:"image/jpeg"}));setNote("Picture added.",true);
+  }catch(e){setNote("Couldn't get that picture from the website. Right-click it, choose Copy image, then press "+(/mac/i.test(navigator.platform)?"Cmd":"Ctrl")+"+V here.")}
+}
+function openURL(u){const a=document.createElement("a");a.href=u;a.target="_blank";a.rel="noopener";document.body.appendChild(a);a.click();a.remove()}
+$("findCover").onclick=()=>{
+  const t=$("fTitle").value.trim(),plat=platVal();
+  if(!t){setNote("Type the title first, then click Find online.");$("fTitle").focus();return}
+  openURL("https://www.google.com/search?tbm=isch&q="+encodeURIComponent(`${t} ${plat||""} box art`.replace(/\s+/g," ").trim()));
+  setNote("In the browser, right-click the picture you want and choose Copy image. Then come back here and press "+(/mac/i.test(navigator.platform)?"Cmd":"Ctrl")+"+V.",true);
+};
 $("removeCover").onclick=()=>{if(pending?.preview)URL.revokeObjectURL(pending.preview);pending=null;inheritCover=null;removeCoverFlag=true;alts=[];showAlts();setDrop("");setNote("")};
 
 $("editForm").onsubmit=async e=>{
@@ -1040,8 +1107,8 @@ $("editForm").onsubmit=async e=>{
       createdAt:editing?.createdAt||now,updatedAt:now};
     if(inheritCover&&editing==null){const src=games.find(x=>x.cover===inheritCover);if(src){for(const k of ["dbId","year","developer","publisher","genre"])if(src[k]&&!g[k])g[k]=src[k]}}
     // Last check if Save was clicked straight after typing
-    if(!picked&&!pending&&dbHandle&&(!g.cover||!g.description)&&!removeCoverFlag){
-      try{const m=await exactMatch(g.platform,g.title,g.region);if(m){picked=m;if(!g.cover&&m.covers.length)pending={url:IMG_BASE+sortCovers(m,g.region)[0].file};if(!g.description)g.description=m.overview}}catch(err){}
+    if(!picked&&!pending&&(dbHandle||isZx(g.platform))&&(!g.cover||!g.description)&&!removeCoverFlag){
+      try{const m=await exactMatch(g.platform,g.title,g.region);if(m){picked=m;if(!g.cover&&m.covers.length)pending={url:imgURL(sortCovers(m,g.region)[0].file)};if(!g.description)g.description=m.overview}}catch(err){}
     }
     if(picked&&norm(g.title)===norm(picked.title))g.title=picked.title;
     if(picked){Object.assign(g,{dbId:picked.id,year:picked.year||g.year||"",developer:picked.developer||"",publisher:picked.publisher||"",genre:picked.genre||""});if(!g.description&&picked.overview)g.description=picked.overview}
@@ -1069,10 +1136,10 @@ async function addOtherSystems(base,names){
   for(const plat of extraSys){
     if(plat===base.platform)continue;
     const g={id:newId(),title:base.title,platform:plat,region:base.region,complete:base.complete,cond:base.cond,acquired:base.acquired,notes:"",description:"",cover:null,createdAt:Date.now(),updatedAt:Date.now()};
-    if(dbHandle){try{
+    if(dbHandle||isZx(plat)){try{
       let m=null;for(const t of [base.title,...(names||[])]){m=await exactMatch(plat,t,base.region);if(m)break}
       if(m){Object.assign(g,{dbId:m.id,year:m.year,developer:m.developer,publisher:m.publisher,genre:m.genre,description:m.overview||base.description||""});
-        if(m.covers.length){g.cover=IMG_BASE+sortCovers(m,base.region)[0].file;await localise(g,m.names)}}
+        if(m.covers.length){g.cover=imgURL(sortCovers(m,base.region)[0].file);await localise(g,m.names)}}
       else g.description=base.description||"";
     }catch(e){}}
     games.push(g);n++;
@@ -1255,7 +1322,7 @@ async function buildPdf(onProgress){
     const xo=p.imgs.length?` /XObject << ${p.imgs.map(([n,id])=>`/${n} ${id} 0 R`).join(" ")} >>`:"";
     pageIds.push(add(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${W} ${H}] /Resources << /Font << /F1 ${F1} 0 R /F2 ${F2} 0 R >>${xo} >> /Contents ${cid} 0 R >>`));
   });
-  const info=add(`<< /Title ${pdfText("Retro Game Library")} /Producer ${pdfText("Retro Game Library 1.0")} /Author ${pdfText("@VirtualJames 2026")} >>`);
+  const info=add(`<< /Title ${pdfText("Retro Game Library")} /Producer ${pdfText("Retro Game Library 1.1")} /Author ${pdfText("@VirtualJames 2026")} >>`);
   const all=[`<< /Type /Catalog /Pages 2 0 R >>`,`<< /Type /Pages /Kids [${pageIds.map(i=>i+" 0 R").join(" ")}] /Count ${pageIds.length} >>`,...objs];
   const chunks=[];let pos=0;const offsets=[];
   const push=s=>{const b=typeof s==="string"?enc.encode(s):s;chunks.push(b);pos+=b.length};
@@ -1331,9 +1398,9 @@ $("fillBtn").onclick=async()=>{
     let covers=0,descs=0;const missed=[];
     for(const g of todo){
       let m=await exactMatch(g.platform,g.title,g.region);
-      if(!m){const r=await dbSearch(g.platform,g.title,g.region,3);if(r.length&&r[0].score<=2.5&&(r.length===1||r[1].score>r[0].score))m=r[0].g}
+      if(!m){const r=await bothSearch(g.platform,g.title,g.region,3);if(r.length&&r[0].score<=2.5&&(r.length===1||r[1].score>r[0].score))m=r[0].g}
       if(!m){missed.push(g.title);continue}
-      if(!g.cover&&m.covers.length){g.cover=IMG_BASE+sortCovers(m,g.region)[0].file;covers++;await localise(g,m.names)}
+      if(!g.cover&&m.covers.length){g.cover=imgURL(sortCovers(m,g.region)[0].file);covers++;await localise(g,m.names)}
       if(!g.description&&m.overview){g.description=m.overview;descs++}
       Object.assign(g,{dbId:m.id,year:g.year||m.year,developer:g.developer||m.developer,publisher:g.publisher||m.publisher,genre:g.genre||m.genre,updatedAt:Date.now()});
     }

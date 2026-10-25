@@ -24,6 +24,8 @@ The same downloads are also on the [Releases](../../releases) page. Each one has
 - **One game, several systems.** Add R-Type once, tick the other machines you own it on, and each gets the right box art.
 - **Multiple copies**, with a filter for duplicates, games on several systems, or games missing box art.
 - **Loose, boxed, complete in box, sealed or digital**, plus condition, date acquired and notes. Digital games record the store (GOG, Steam, eShop and others), and you can filter to physical or digital only.
+- **Rare Spectrum and ZX81 games** are also looked up in [ZXDB](https://github.com/zxdb/ZXDB), the open Spectrum database, through [ZXInfo](https://zxinfo.dk), with cover scans and loading screens.
+- **Find box art online**: search the web from the app, then paste or drag a picture in.
 - **Covers saved locally** as small pictures, so the app works offline.
 - **Cloud backup.** Keep your library folder in Google Drive, OneDrive, iCloud or Dropbox and every change is backed up, plus a dated backup copy for each day you make changes.
 - **Export** a PDF catalogue with box art, an Excel workbook, or a CSV.
@@ -34,7 +36,7 @@ The same downloads are also on the [Releases](../../releases) page. Each one has
 
 Retro Game Library is only for cataloguing your collection. It isn't a game launcher and is in no way a replacement for the brilliant [LaunchBox](https://www.launchbox-app.com). If you play games on PC, check it out.
 
-Game information and box art come from the LaunchBox Games Database, built by the LaunchBox community. This project isn't made by, or affiliated with, LaunchBox. The app downloads the database straight from LaunchBox; none of their data is stored in this repository.
+Game information and box art come from the LaunchBox Games Database, built by the LaunchBox community. This project isn't made by, or affiliated with, LaunchBox. ZX Spectrum and ZX81 data comes from ZXDB via the ZXInfo API; thanks to everyone at Spectrum Computing and ZXInfo. The app downloads the database straight from LaunchBox; none of their data is stored in this repository.
 
 ## How it's built
 
@@ -67,7 +69,7 @@ Found a bug or have an idea? [Open an issue](../../issues) and say which system 
 
 ## Credits
 
-Retro Game Library 1.0 · VirtualJames 2026 · Follow [virtualjames on X](https://x.com/virtualjames) for updates
+Retro Game Library 1.1 · VirtualJames 2026 · Follow [virtualjames on X](https://x.com/virtualjames) for updates
 
 Made with [Claude Code](https://claude.com/claude-code). I didn't code this one myself: I designed it, tested it and told Claude what my collection needed.
 
