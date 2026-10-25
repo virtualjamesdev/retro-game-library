@@ -18,8 +18,8 @@ if(window.Neutralino){(function(){
   const dirname=p=>{const s=fix(p);const i=Math.max(s.lastIndexOf("/"),s.lastIndexOf("\\"));return i>0?s.slice(0,i):s};
   const basename=p=>String(p).split(/[\\/]/).filter(Boolean).pop()||String(p);
   const q=s=>'"'+String(s).replace(/"/g,'\\"')+'"';
-  let settings={},dataDir="";
-  const writeSettings=()=>N.filesystem.writeFile(join(dataDir,"settings.json"),JSON.stringify(settings,null,2)).catch(()=>{});
+  let settings={},dataDir="",dbDir="";
+  const writeSettings=()=>{const t=JSON.stringify(settings,null,2);if(dbDir&&dbDir!==dataDir)N.filesystem.writeFile(join(dbDir,"last-settings.json"),t).catch(()=>{});return N.filesystem.writeFile(join(dataDir,"settings.json"),t).catch(()=>{})};
   // Run curl (built into Windows 10/11, macOS and Linux) and wait for it to finish.
   const waiting=new Map(),early=new Map();
   N.events.on("spawnedProcess",e=>{const d=e.detail;const w=waiting.get(d.id);if(w)w(d);else{if(!early.has(d.id))early.set(d.id,[]);early.get(d.id).push(d)}});
@@ -33,6 +33,7 @@ if(window.Neutralino){(function(){
   const curl=WIN?"curl.exe":"curl";
   const rgl={desktop:true,neu:true,
     get dataDir(){return dataDir},
+    get dbDir(){return dbDir||dataDir},
     getSetting:k=>Object.prototype.hasOwnProperty.call(settings,k)?settings[k]:null,
     setSetting:(k,v)=>{settings[String(k)]=v;writeSettings()},
     pickFolder:async()=>{const p=await N.os.showFolderDialog("Choose your library folder");return p?fix(p):null},
@@ -44,7 +45,7 @@ if(window.Neutralino){(function(){
     mtime:async p=>settings["mtime:"+p]||(await N.filesystem.getStats(p)).modifiedAt,
     readdir:async p=>(await N.filesystem.readDirectory(p)).filter(e=>e.entry!=="."&&e.entry!==".."&&!e.entry.startsWith(".")&&e.entry!=="desktop.ini"&&!/\.(rgltmp|part)$/.test(e.entry)).map(e=>({name:e.entry,dir:e.type==="DIRECTORY"})),
     // Big files in the app's data folder are read straight from the built-in server (fast); others through the file API.
-    read:async p=>{p=fix(p);if(dataDir&&p.startsWith(dataDir+SEP)){const rel=p.slice(dataDir.length+1).split(/[\\/]/).map(encodeURIComponent).join("/");const r=await fetch("/rgl-data/"+rel,{cache:"no-store"});if(r.ok)return r.arrayBuffer()}return N.filesystem.readBinaryFile(p)},
+    read:async p=>{p=fix(p);for(const [root,mount] of [[dbDir,"/rgl-share/"],[dataDir,"/rgl-data/"]]){if(root&&p.startsWith(root+SEP)){const rel=p.slice(root.length+1).split(/[\\/]/).map(encodeURIComponent).join("/");const r=await fetch(mount+rel,{cache:"no-store"});if(r.ok)return r.arrayBuffer()}}return N.filesystem.readBinaryFile(p)},
     write:async(p,data)=>{await N.filesystem.createDirectory(dirname(p)).catch(()=>{});await N.filesystem.writeBinaryFile(p,data)},
     mkdir:p=>N.filesystem.createDirectory(p).catch(()=>{}),
     rm:p=>N.filesystem.remove(p).catch(()=>{}),
@@ -71,6 +72,32 @@ if(window.Neutralino){(function(){
     dataDir=dir;
     try{settings=JSON.parse(await N.filesystem.readFile(join(dir,"settings.json")))||{}}catch(e){settings={}}
     try{await N.server.mount("/rgl-data",dir)}catch(e){}
+    // One copy of the big game database for every copy and version of the app on this computer.
+    try{
+      let share=null;
+      if(WIN){try{const la=await N.os.getEnv("LOCALAPPDATA");if(la)share=join(fix(la),"Retro Game Library")}catch(e){}}
+      if(!share)share=join(fix(await N.os.getPath("data")),"Retro Game Library");
+      await N.filesystem.createDirectory(share).catch(()=>{});
+      const t=join(share,".write-test");await N.filesystem.writeFile(t,"ok");await N.filesystem.remove(t);
+      dbDir=share;
+      if(share!==dir){
+        await N.server.mount("/rgl-share",share).catch(()=>{});
+        // A fresh copy of the app (for example a new version) picks up where the last one left off.
+        if(!Object.keys(settings).length){try{settings=JSON.parse(await N.filesystem.readFile(join(share,"last-settings.json")))||{}}catch(e){}}
+        const old=join(dir,"Metadata.zip"),neu=join(share,"Metadata.zip");
+        const st=async p=>{try{return await N.filesystem.getStats(p)}catch(e){return null}};
+        const so=await st(old),sn=await st(neu);
+        if(so){
+          const mo=settings["mtime:"+old]||so.modifiedAt,mn=sn?(settings["mtime:"+neu]||sn.modifiedAt):0;
+          if(!sn||mo>mn){try{await N.filesystem.remove(neu).catch(()=>{});await N.filesystem.move(old,neu)}catch(e){await N.filesystem.copy(old,neu);await N.filesystem.remove(old)}settings["mtime:"+neu]=mo}
+          else await N.filesystem.remove(old);
+          delete settings["mtime:"+old];
+        }
+        const h=settings["h:db"];
+        if(await st(neu)&&(!h||!h.nodePath||h.nodePath===old||!(await st(h.nodePath))))settings["h:db"]={nodePath:neu,kind:"file"};
+        await writeSettings();
+      }
+    }catch(e){dbDir=dir}
   })();
   // Website links open in the normal browser.
   document.addEventListener("click",e=>{const a=e.target.closest&&e.target.closest('a[href^="http"]');if(a){e.preventDefault();N.os.open(a.href)}},true);
@@ -268,7 +295,7 @@ html:not(.desktop) .app-only{display:none!important}
     <div><button class="btn primary" id="startBtn" disabled>Open my library</button></div>
   </div>
   <p class="gerr" id="gateErr"></p>
-  <footer class="foot">Retro Game Library 1.1 · @VirtualJames 2026</footer>
+  <footer class="foot">Retro Game Library 1.2 · @VirtualJames 2026</footer>
 </div>
 
 <div class="wrap" id="app" hidden>
@@ -319,7 +346,7 @@ html:not(.desktop) .app-only{display:none!important}
   </div>
   <div class="chips" id="chips"></div>
   <main id="view"></main>
-  <footer class="foot">Retro Game Library 1.1 · @VirtualJames 2026 · <button class="linkbtn" id="aboutLink">About</button></footer>
+  <footer class="foot">Retro Game Library 1.2 · @VirtualJames 2026 · <button class="linkbtn" id="aboutLink">About</button></footer>
 </div>
 
 <!-- Add / edit -->
@@ -336,6 +363,7 @@ html:not(.desktop) .app-only{display:none!important}
           <p class="lbnote" id="lbNote"></p>
           <div class="coverbtns">
             <button type="button" class="btn sm" id="chooseCover">Choose picture…</button>
+            <button type="button" class="btn sm" id="lookupCover" title="Search the game databases for this title and pick the right one">Look up box art</button>
             <button type="button" class="btn sm" id="findCover" title="Search the web for box art, then copy a picture and paste it here">Find online…</button>
             <button type="button" class="btn sm ghost" id="removeCover" hidden>Remove</button>
           </div>
@@ -448,7 +476,7 @@ html:not(.desktop) .app-only{display:none!important}
         <p>It's in no way a replacement for <b>LaunchBox</b>, which is brilliant for organising and playing your games on PC. If you haven't tried it, go and check it out at <a href="https://www.launchbox-app.com/" target="_blank" rel="noopener">launchbox-app.com</a>.</p>
         <p>Game information and box art come from the LaunchBox Games Database, built by the LaunchBox community. This app isn't made by, or affiliated with, LaunchBox.</p>
         <p>For the ZX Spectrum and ZX81, games LaunchBox doesn't have are looked up in <b>ZXDB</b>, the open Spectrum database, through <a href="https://zxinfo.dk/" target="_blank" rel="noopener">ZXInfo</a> and <a href="https://spectrumcomputing.co.uk/" target="_blank" rel="noopener">Spectrum Computing</a>. Thanks to everyone who keeps it going.</p>
-        <p>Retro Game Library 1.1 · @VirtualJames 2026 · Made with Claude Code</p>
+        <p>Retro Game Library 1.2 · @VirtualJames 2026 · Made with Claude Code</p>
       </section>
     </div>
   </div>
@@ -586,7 +614,7 @@ async function openLibrary(){
 async function downloadDatabase(onProgress){
   if(rgl.neu){
     const info=await rgl.head(DB_URL),total=info.length||110e6;
-    const part=rgl.join(rgl.dataDir,"Metadata.zip.part"),final=rgl.join(rgl.dataDir,"Metadata.zip");
+    const part=rgl.join(rgl.dbDir||rgl.dataDir,"Metadata.zip.part"),final=rgl.join(rgl.dbDir||rgl.dataDir,"Metadata.zip");
     await rgl.download(DB_URL,part,n=>onProgress&&onProgress(Math.min(.99,n/total)));
     const tf=new File([await rgl.read(part)],"Metadata.zip");
     if(!(await zipEntries(tf)).has("Metadata.xml")){await rgl.rm(part);throw new Error("The download wasn't the game database. Try again later.")}
@@ -813,7 +841,7 @@ function zxGame(src,id){
   bits.push(`${what} for the ${src.machineType||"ZX Spectrum"}`+(pubs.length?`, published by ${pubs.join(" and ")}`:"")+(year?` in ${year}`:"")+".");
   const auth2=auth.filter(n=>!pubs.includes(n));if(auth2.length)bits.push(`Written by ${auth2.slice(0,4).join(", ")}${auth2.length>4?" and others":""}.`);
   return {id:"zxdb:"+id,source:"zxdb",title:src.title,year,publisher:pubs[0]||"",developer:auth[0]||"",genre:src.genreSubType||src.genreType||"",
-    overview:bits.join(" "),covers,names:[src.title],norms:[norm(src.title)]};
+    overview:bits.join(" "),covers,names:[src.title],norms:[norm(src.title)],votes:src.score?.votes||0,inlay:covers.some(c=>c.rank===0)};
 }
 async function zxSearch(plat,q,limit=8){
   const ok=ZX_PLATS[plat];const n=norm(q);if(!ok||!n||n.length<2)return [];
@@ -829,7 +857,7 @@ async function zxSearch(plat,q,limit=8){
   for(const g of list){const k=g.norms[0];let s;
     if(k===n)s=0;else if(k.startsWith(n))s=1;else if(k.includes(n))s=2;else if(k.length>=5&&n.includes(k))s=2.5;else if(words.length&&words.every(w=>k.includes(w)))s=3;else continue;
     res.push({g,score:s})}
-  return res.sort((a,b)=>a.score-b.score||(b.g.covers.length>0)-(a.g.covers.length>0)||a.g.title.length-b.g.title.length).slice(0,limit);
+  return res.sort((a,b)=>a.score-b.score||(b.g.inlay-a.g.inlay)||(b.g.votes-a.g.votes)||a.g.title.length-b.g.title.length).slice(0,limit);
 }
 // LaunchBox first, then ZXDB for anything LaunchBox doesn't have (or has without a cover).
 async function bothSearch(plat,q,region,limit=8){
@@ -973,7 +1001,7 @@ function openEdit(g){
   setTimeout(()=>(platVal()?$("fTitle"):$("fPlatform")).focus(),30);
   if(platVal()&&dbHandle)loadPlatforms([platVal()]).catch(()=>{});
 }
-function closeEdit(){$("editScrim").hidden=true;if(pending?.preview)URL.revokeObjectURL(pending.preview);pending=null;picked=null;$("sugg").hidden=true}
+function closeEdit(){lookupOn=false;$("editScrim").hidden=true;if(pending?.preview)URL.revokeObjectURL(pending.preview);pending=null;picked=null;$("sugg").hidden=true}
 $("editClose").onclick=closeEdit;$("editCancel").onclick=closeEdit;
 $("editScrim").onmousedown=e=>{if(e.target===$("editScrim"))closeEdit()};
 $("toolsScrim").onmousedown=e=>{if(e.target===$("toolsScrim"))$("toolsScrim").hidden=true};
@@ -996,6 +1024,7 @@ function useAlt(i){
 $("altPrev").onclick=()=>useAlt(altIdx-1);
 $("altNext").onclick=()=>useAlt(altIdx+1);
 function applyMatch(g,auto){
+  lookupOn=false;
   $("fTitle").value=g.title;$("sugg").hidden=true;picked=g;
   if(g.overview&&(!$("fDesc").value.trim()||auto!=="keepdesc"))$("fDesc").value=g.overview;
   $("descCredit").textContent=srcCredit(g.id);setMeta(g);
@@ -1015,20 +1044,20 @@ function fillSysPicker(){
 function drawExtraSys(){
   $("extraSys").innerHTML=extraSys.map((p,i)=>`<span class="chip x">${esc(p)} <button type="button" class="btn sm ghost" data-rm="${i}" aria-label="Remove ${esc(p)}">×</button></span>`).join("");
 }
-async function updateSugg(){
+async function updateSugg(opt={}){
   const plat=platVal(), q=$("fTitle").value.trim(), box=$("sugg");
   if((!dbHandle&&!isZx(plat))||q.length<2){box.hidden=true;return}
   if(!plat){box.hidden=false;box.innerHTML=`<div class="msg">Pick the system first to search the database.</div>`;return}
-  let res;try{res=await bothSearch(plat,q,$("fRegion").value)}catch(e){box.hidden=false;box.innerHTML=`<div class="msg">Couldn't read the database file: ${esc(e.message)}</div>`;return}
+  let res;try{res=await bothSearch(plat,q,$("fRegion").value,opt.limit||8)}catch(e){box.hidden=false;box.innerHTML=`<div class="msg">Couldn't read the database file: ${esc(e.message)}</div>`;return}
   if($("lbNote").textContent.startsWith("Loading"))setNote("");
   if(q!==$("fTitle").value.trim())return;
   suggList=res;suggOn=-1;
-  if(!res.length){box.hidden=false;box.innerHTML=`<div class="msg">Nothing in the database for “${esc(q)}” on ${esc(plat)}. You can still save it, or drop a picture in.</div>`;return}
+  if(!res.length){box.hidden=false;box.innerHTML=`<div class="msg">Nothing in the database${isZx(plat)?"s":""} for “${esc(q)}” on ${esc(plat)}. Try a shorter title, or click <b>Find online…</b> to search the web.</div>`;return}
   box.hidden=false;
   box.innerHTML=res.map(({g},i)=>{const c=sortCovers(g,$("fRegion").value)[0];
     return `<button type="button" data-i="${i}"><span class="th">${c?`<img src="${esc(imgURL(c.file))}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:""}</span><span><b>${esc(g.title)}</b><small>${esc([g.year,g.publisher].filter(Boolean).join(" · "))}${g.covers.length?"":" · no box picture"}${g.source==="zxdb"?" · ZXDB":""}</small></span></button>`}).join("");
 }
-$("fTitle").oninput=()=>{picked=null;typed=true;clearTimeout(suggTimer);suggTimer=setTimeout(updateSugg,160)};
+$("fTitle").oninput=()=>{lookupOn=false;picked=null;typed=true;clearTimeout(suggTimer);suggTimer=setTimeout(updateSugg,160)};
 $("fTitle").onfocus=()=>{if(typed&&$("fTitle").value.trim().length>1&&!picked)updateSugg()};
 $("fTitle").onkeydown=e=>{
   const box=$("sugg");if(box.hidden||!suggList.length)return;
@@ -1043,7 +1072,9 @@ async function exactMatch(plat,title,region){
   const res=await bothSearch(plat,title,region,4);const ex=res.filter(r=>r.score===0);
   return ex.length===1?ex[0].g:ex.length>1?(ex.find(r=>r.g.covers.length)||ex[0]).g:null;
 }
+let lookupOn=false;
 async function autoCheck(){
+  if(lookupOn)return;
   $("sugg").hidden=true;
   if($("editScrim").hidden||picked)return;
   const plat=platVal(), q=$("fTitle").value.trim();
@@ -1086,6 +1117,17 @@ async function takeImageURL(u){
   }catch(e){setNote("Couldn't get that picture from the website. Right-click it, choose Copy image, then press "+(/mac/i.test(navigator.platform)?"Cmd":"Ctrl")+"+V here.")}
 }
 function openURL(u){const a=document.createElement("a");a.href=u;a.target="_blank";a.rel="noopener";document.body.appendChild(a);a.click();a.remove()}
+$("lookupCover").onclick=async()=>{
+  const t=$("fTitle").value.trim(),plat=platVal();
+  if(!plat){setNote("Pick the system first.");$("fPlatform").focus();return}
+  if(!t){setNote("Type the title first.");$("fTitle").focus();return}
+  if(!dbHandle&&!isZx(plat)){setNote("The game database isn't set up yet. Set it up under Backup & tools, or use Find online.");return}
+  const b=$("lookupCover");b.disabled=true;b.textContent="Looking…";
+  lookupOn=true;
+  try{picked=null;await updateSugg({limit:12});const box=$("sugg");
+    if(!box.hidden){$("fTitle").scrollIntoView({block:"center",behavior:"smooth"});setNote(suggList.length?"Pick the right one from the list under the title.":"",true)}}
+  finally{b.disabled=false;b.textContent="Look up box art"}
+};
 $("findCover").onclick=()=>{
   const t=$("fTitle").value.trim(),plat=platVal();
   if(!t){setNote("Type the title first, then click Find online.");$("fTitle").focus();return}
@@ -1322,7 +1364,7 @@ async function buildPdf(onProgress){
     const xo=p.imgs.length?` /XObject << ${p.imgs.map(([n,id])=>`/${n} ${id} 0 R`).join(" ")} >>`:"";
     pageIds.push(add(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${W} ${H}] /Resources << /Font << /F1 ${F1} 0 R /F2 ${F2} 0 R >>${xo} >> /Contents ${cid} 0 R >>`));
   });
-  const info=add(`<< /Title ${pdfText("Retro Game Library")} /Producer ${pdfText("Retro Game Library 1.1")} /Author ${pdfText("@VirtualJames 2026")} >>`);
+  const info=add(`<< /Title ${pdfText("Retro Game Library")} /Producer ${pdfText("Retro Game Library 1.2")} /Author ${pdfText("@VirtualJames 2026")} >>`);
   const all=[`<< /Type /Catalog /Pages 2 0 R >>`,`<< /Type /Pages /Kids [${pageIds.map(i=>i+" 0 R").join(" ")}] /Count ${pageIds.length} >>`,...objs];
   const chunks=[];let pos=0;const offsets=[];
   const push=s=>{const b=typeof s==="string"?enc.encode(s):s;chunks.push(b);pos+=b.length};

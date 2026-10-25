@@ -34,7 +34,8 @@ Bought it digitally (GOG, Steam, eShop and so on)? Choose "Digital" under
 "What you have" and pick the store.
 Not in the database? Save it anyway and drop your own photo of the box onto
 the picture area.
-No box art? Click "Find online…" to search the web for it. Right-click the
+No box art? Open the game and click "Look up box art" to pick from the
+matching games in the databases, or "Find online…" to search the web. Right-click the
 picture you want, choose "Copy image", then press Ctrl+V (Cmd+V on a Mac)
 in the app. You can also drag a picture straight from a web page.
 ZX Spectrum and ZX81: rare games LaunchBox doesn't have are also looked up
@@ -89,7 +90,7 @@ brilliant for organising and playing your games on PC. Check it out at
 launchbox-app.com.
 
 CREDITS
-Retro Game Library 1.1  ·  @VirtualJames 2026
+Retro Game Library 1.2  ·  @VirtualJames 2026
 Game information and box art: LaunchBox Games Database
 (gamesdb.launchbox-app.com), built by the LaunchBox community.
 This app isn't made by, or affiliated with, LaunchBox.
@@ -100,10 +101,15 @@ Made with Claude Code. Built with Neutralinojs.
 PORTABLE = """
 
 PORTABLE
-The app is a single small file. It keeps its settings and the game database
-in a "Retro Game Library Data" folder it makes next to itself. Nothing is installed, so you can run it from
-a USB stick or move the whole folder anywhere. (If that folder can't be
-written to, for example inside Program Files, it uses your user folder.)
+The app is a single small file. Nothing is installed, so you can run it from
+a USB stick or move the folder anywhere. Its settings live in a "Retro Game
+Library Data" folder it makes next to itself.
+
+The 100 MB game database is kept in one place on your computer
+(%LOCALAPPDATA%\\Retro Game Library on Windows, ~/.local/share/Retro Game
+Library on Linux), so every copy and version of the app shares the same file.
+Updating to a new version? Just replace the app; you won't download the
+database again. Delete that folder to free the space if you stop using the app.
 """
 PORTABLE_MAC = """
 

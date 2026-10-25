@@ -25,7 +25,8 @@ The same downloads are also on the [Releases](../../releases) page. Each one has
 - **Multiple copies**, with a filter for duplicates, games on several systems, or games missing box art.
 - **Loose, boxed, complete in box, sealed or digital**, plus condition, date acquired and notes. Digital games record the store (GOG, Steam, eShop and others), and you can filter to physical or digital only.
 - **Rare Spectrum and ZX81 games** are also looked up in [ZXDB](https://github.com/zxdb/ZXDB), the open Spectrum database, through [ZXInfo](https://zxinfo.dk), with cover scans and loading screens.
-- **Find box art online**: search the web from the app, then paste or drag a picture in.
+- **Look up box art** from inside any game and pick the right match, or **Find online** to search the web, then paste or drag a picture in.
+- **One shared copy of the game database** on each computer, however many copies or versions of the app you have.
 - **Covers saved locally** as small pictures, so the app works offline.
 - **Cloud backup.** Keep your library folder in Google Drive, OneDrive, iCloud or Dropbox and every change is backed up, plus a dated backup copy for each day you make changes.
 - **Export** a PDF catalogue with box art, an Excel workbook, or a CSV.
@@ -69,7 +70,7 @@ Found a bug or have an idea? [Open an issue](../../issues) and say which system 
 
 ## Credits
 
-Retro Game Library 1.1 · VirtualJames 2026 · Follow [virtualjames on X](https://x.com/virtualjames) for updates
+Retro Game Library 1.2 · VirtualJames 2026 · Follow [virtualjames on X](https://x.com/virtualjames) for updates
 
 Made with [Claude Code](https://claude.com/claude-code). I didn't code this one myself: I designed it, tested it and told Claude what my collection needed.
 
