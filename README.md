@@ -1,6 +1,6 @@
 # Retro Game Library
 
-**A visual catalogue for the games you own.** Carts, tapes, discs, boxes and digital copies, from the Atari 2600 and ZX Spectrum right up to PS5 and Switch 2.
+**A visual catalogue for the games you own.** Carts, tapes, discs, boxes and digital copies, from the Atari 2600 and ZX Spectrum right up to PS5, Switch 2 and Evercade.
 
 I'd been keeping track of my retro collection in a spreadsheet. It worked, but it was just rows of text, and I wanted something more visual that also backed itself up to the cloud. Add a game, pick the system, and the box art, description, year and publisher fill themselves in.
 
@@ -29,6 +29,7 @@ The same downloads are also on the [Releases](../../releases) page. Each one has
 - **One shared copy of the game database** on each computer, however many copies or versions of the app you have.
 - **Covers saved locally** as small pictures, so the app works offline.
 - **Cloud backup.** Keep your library folder in Google Drive, OneDrive, iCloud or Dropbox and every change is backed up, plus a dated backup copy for each day you make changes.
+- **Import from a spreadsheet**: download the Excel or CSV template (with drop-down lists), fill it in and import your whole collection at once, box art included.
 - **Export** a PDF catalogue with box art, an Excel workbook, or a CSV.
 - **Tiny and portable**: about 1–2 MB, with nothing to install.
 - No accounts, no tracking and no ads.
@@ -70,7 +71,7 @@ Found a bug or have an idea? [Open an issue](../../issues) and say which system 
 
 ## Credits
 
-Retro Game Library 1.2 · VirtualJames 2026 · Follow [virtualjames on X](https://x.com/virtualjames) for updates
+Retro Game Library 1.3 · VirtualJames 2026 · Follow [virtualjames on X](https://x.com/virtualjames) for updates
 
 Made with [Claude Code](https://claude.com/claude-code). I didn't code this one myself: I designed it, tested it and told Claude what my collection needed.
 

@@ -48,6 +48,16 @@ The drop-down next to the search box shows only duplicates, games on
 several systems, physical or digital games only, or games missing box art.
 
 
+IMPORTING FROM A SPREADSHEET
+Already have your collection in a spreadsheet? Open "Backup & tools" and,
+under "Import games", click "Template (Excel)…" to get a ready-made sheet
+with drop-down lists. Put one game per row (only Title and System are
+needed), save it, then click "Import spreadsheet…". Excel (.xlsx) and CSV
+both work, and so do most spreadsheets with a Title and System column.
+Short system names are fine: Spectrum, C64, Mega Drive, SNES, PS2 and so on.
+Box art and descriptions are looked up as the games are added (using the
+first match), so check any you're unsure of with "Look up box art".
+
 YOUR FILES
 Everything is saved straight away into your library folder:
 - library.json                 your full collection
@@ -90,7 +100,7 @@ brilliant for organising and playing your games on PC. Check it out at
 launchbox-app.com.
 
 CREDITS
-Retro Game Library 1.2  ·  @VirtualJames 2026
+Retro Game Library 1.3  ·  @VirtualJames 2026
 Game information and box art: LaunchBox Games Database
 (gamesdb.launchbox-app.com), built by the LaunchBox community.
 This app isn't made by, or affiliated with, LaunchBox.

@@ -203,6 +203,9 @@ td .thumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .sheet{background:var(--panel);border-radius:10px;width:min(800px,100%);max-height:calc(100vh - 32px);overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.4)}
 .sheet header{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--panel);z-index:2}
 .sheet header .hbtns{display:flex;gap:8px}
+.impbox{margin-top:10px;padding:12px 14px;border:1px solid var(--line);border-radius:8px;background:var(--soft)}
+.impbox p{margin:0 0 8px}.impbox .warnline{color:var(--warn)}
+.impbox .chk{display:flex;gap:8px;align-items:flex-start;margin:6px 0;font-size:14px}.impbox .row2{margin-top:10px}
 .sheet header h2{margin:0;font:700 20px/1.2 var(--display)}
 .sheet .body{padding:18px}
 .form{display:grid;grid-template-columns:210px 1fr;gap:20px}
@@ -295,7 +298,7 @@ html:not(.desktop) .app-only{display:none!important}
     <div><button class="btn primary" id="startBtn" disabled>Open my library</button></div>
   </div>
   <p class="gerr" id="gateErr"></p>
-  <footer class="foot">Retro Game Library 1.2 · @VirtualJames 2026</footer>
+  <footer class="foot">Retro Game Library 1.3 · @VirtualJames 2026</footer>
 </div>
 
 <div class="wrap" id="app" hidden>
@@ -346,7 +349,7 @@ html:not(.desktop) .app-only{display:none!important}
   </div>
   <div class="chips" id="chips"></div>
   <main id="view"></main>
-  <footer class="foot">Retro Game Library 1.2 · @VirtualJames 2026 · <button class="linkbtn" id="aboutLink">About</button></footer>
+  <footer class="foot">Retro Game Library 1.3 · @VirtualJames 2026 · <button class="linkbtn" id="aboutLink">About</button></footer>
 </div>
 
 <!-- Add / edit -->
@@ -429,6 +432,14 @@ html:not(.desktop) .app-only{display:none!important}
         <p>Every change is saved straight away into <b id="libFolderName"></b>: <code>library.json</code>, a spreadsheet <code>Retro Game Library.csv</code>, any pictures you added yourself, and a dated copy each day in <code>backups</code>. If that folder is inside your Google Drive, OneDrive or Dropbox folder, their app uploads every change, so it's backed up online. To move it, click <b>Change setup</b> below and pick a new folder: your library is copied across.</p>
       </section>
       <section>
+        <h3>Import games</h3>
+        <p>Got your collection in a spreadsheet already? Download the template, put one game per row (only Title and System are needed) and import it. Excel (.xlsx) and CSV both work, and so do most spreadsheets with a Title and System column. Box art and descriptions are looked up for you; change any of them later with <b>Look up box art</b>.</p>
+        <div class="row2"><button class="btn" id="tplXlsxBtn">Template (Excel)…</button><button class="btn ghost" id="tplCsvBtn">Template (CSV)…</button><button class="btn primary" id="importBtn">Import spreadsheet…</button><input type="file" id="importFile" accept=".csv,.xlsx,.txt,.tsv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden></div>
+        <div id="importConfirm" class="impbox" hidden></div>
+        <div class="progress" id="importProg" hidden><i></i></div>
+        <div class="status" id="importStatus"></div>
+      </section>
+      <section>
         <h3>Export</h3>
         <p>Save a copy to keep, print, share or put on your phone. The PDF is a catalogue with box art, grouped by system, so you can flick through your collection offline.</p>
         <div class="row2"><button class="btn" id="pdfBtn">Save as PDF…</button><button class="btn" id="xlsxBtn">Save as Excel…</button><button class="btn" id="csvBtn">Save as CSV…</button></div>
@@ -476,7 +487,7 @@ html:not(.desktop) .app-only{display:none!important}
         <p>It's in no way a replacement for <b>LaunchBox</b>, which is brilliant for organising and playing your games on PC. If you haven't tried it, go and check it out at <a href="https://www.launchbox-app.com/" target="_blank" rel="noopener">launchbox-app.com</a>.</p>
         <p>Game information and box art come from the LaunchBox Games Database, built by the LaunchBox community. This app isn't made by, or affiliated with, LaunchBox.</p>
         <p>For the ZX Spectrum and ZX81, games LaunchBox doesn't have are looked up in <b>ZXDB</b>, the open Spectrum database, through <a href="https://zxinfo.dk/" target="_blank" rel="noopener">ZXInfo</a> and <a href="https://spectrumcomputing.co.uk/" target="_blank" rel="noopener">Spectrum Computing</a>. Thanks to everyone who keeps it going.</p>
-        <p>Retro Game Library 1.2 · @VirtualJames 2026 · Made with Claude Code</p>
+        <p>Retro Game Library 1.3 · @VirtualJames 2026 · Made with Claude Code</p>
       </section>
     </div>
   </div>
@@ -747,11 +758,12 @@ async function loadPlatformNames(){
   if(f){try{const {stream}=await entryStream(f,"Platforms.xml");const s=await new Response(stream.pipeThrough(new TextEncoderStream())).text();platformNames=[...s.matchAll(/<Platform>\s*<Name>([^<]*)<\/Name>/g)].map(m=>unxml(m[1]))}catch(e){}}
   updatePlatList();
 }
+const EXTRA_SYSTEMS=["Evercade"];
 const COMMON_SYSTEMS=["3DO Interactive Multiplayer","Amstrad CPC","Amstrad GX4000","Apple II","Atari 2600","Atari 5200","Atari 7800","Atari 800","Atari Jaguar","Atari Lynx","Atari ST","BBC Microcomputer System","Coleco ColecoVision","Commodore 64","Commodore Amiga","Commodore Amiga CD32","Commodore VIC-20","Dragon 32/64","GCE Vectrex","Mattel Intellivision","Microsoft MSX","Microsoft Xbox","Microsoft Xbox 360","NEC TurboGrafx-16","NEC TurboGrafx-CD","Nintendo 3DS","Nintendo 64","Nintendo DS","Nintendo Entertainment System","Nintendo Game Boy","Nintendo Game Boy Advance","Nintendo Game Boy Color","Nintendo GameCube","Nintendo Switch","Nintendo Virtual Boy","Nintendo Wii","Nintendo Wii U","Oric Atmos","Philips CD-i","Sega 32X","Sega CD","Sega Dreamcast","Sega Game Gear","Sega Genesis","Sega Master System","Sega Saturn","Sinclair ZX Spectrum","Sinclair ZX-81","SNK Neo Geo AES","SNK Neo Geo CD","SNK Neo Geo Pocket Color","Sony Playstation","Sony Playstation 2","Sony Playstation 3","Sony PSP","Super Nintendo Entertainment System","Texas Instruments TI 99/4A"];
 function updatePlatList(keep){
   const sel=$("fPlatform");const cur=keep!==undefined?keep:platVal();
   const mine=[...new Set(games.map(g=>g.platform).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
-  const all=[...new Set(platformNames.length?platformNames:COMMON_SYSTEMS)].sort((a,b)=>a.localeCompare(b));
+  const all=[...new Set([...(platformNames.length?platformNames:COMMON_SYSTEMS),...EXTRA_SYSTEMS])].sort((a,b)=>a.localeCompare(b));
   if(cur&&!mine.includes(cur)&&!all.includes(cur))mine.push(cur);
   const opt=p=>`<option value="${esc(p)}">${esc(p)}</option>`;
   sel.innerHTML=`<option value="" disabled>Choose a system…</option>`+(mine.length?`<optgroup label="Your systems">${mine.map(opt).join("")}</optgroup>`:"")+`<optgroup label="All systems">${all.filter(p=>!mine.includes(p)).map(opt).join("")}</optgroup><option value="__other">Other… (type a name)</option>`;
@@ -1364,7 +1376,7 @@ async function buildPdf(onProgress){
     const xo=p.imgs.length?` /XObject << ${p.imgs.map(([n,id])=>`/${n} ${id} 0 R`).join(" ")} >>`:"";
     pageIds.push(add(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${W} ${H}] /Resources << /Font << /F1 ${F1} 0 R /F2 ${F2} 0 R >>${xo} >> /Contents ${cid} 0 R >>`));
   });
-  const info=add(`<< /Title ${pdfText("Retro Game Library")} /Producer ${pdfText("Retro Game Library 1.2")} /Author ${pdfText("@VirtualJames 2026")} >>`);
+  const info=add(`<< /Title ${pdfText("Retro Game Library")} /Producer ${pdfText("Retro Game Library 1.3")} /Author ${pdfText("@VirtualJames 2026")} >>`);
   const all=[`<< /Type /Catalog /Pages 2 0 R >>`,`<< /Type /Pages /Kids [${pageIds.map(i=>i+" 0 R").join(" ")}] /Count ${pageIds.length} >>`,...objs];
   const chunks=[];let pos=0;const offsets=[];
   const push=s=>{const b=typeof s==="string"?enc.encode(s):s;chunks.push(b);pos+=b.length};
@@ -1491,6 +1503,239 @@ $("restoreFile").onchange=async e=>{
     render();scheduleSave();setStatus("restoreStatus",`Restored ${list.length} games.`,"ok");
   };
 };
+/* ---------- Import from a spreadsheet (CSV or Excel) ---------- */
+const IMP_COLS=["Title","System","Region","What I have","Condition","Store","Date acquired","Copies","Notes"];
+const IMP_HAVE=["Loose","Boxed","Complete in box","Sealed","Digital"];
+const IMP_COND=["Mint","Very good","Good","Fair","Poor"];
+const IMP_REGION=["PAL","NTSC-U","NTSC-J","Other"];
+const IMP_STORE=["GOG","Steam","Epic Games Store","PlayStation Store","Nintendo eShop","Xbox / Microsoft Store","itch.io","Other"];
+const IMP_EXAMPLE="EXAMPLE - delete this row";
+const IMP_EXAMPLES=[
+  ["R-Type","Sinclair ZX Spectrum","PAL","Boxed","Good","","1987-06-01","1",IMP_EXAMPLE],
+  ["Sonic the Hedgehog","Sega Genesis","PAL","Complete in box","Very good","","","2",IMP_EXAMPLE],
+  ["Baldur's Gate","Windows","","Digital","","GOG","","1",IMP_EXAMPLE]];
+const SYS_ALIASES={zxspectrum:"Sinclair ZX Spectrum",spectrum:"Sinclair ZX Spectrum",speccy:"Sinclair ZX Spectrum",zx:"Sinclair ZX Spectrum",zx81:"Sinclair ZX-81",
+  c64:"Commodore 64",commodore64:"Commodore 64",cbm64:"Commodore 64",vic20:"Commodore VIC-20",amiga:"Commodore Amiga",cd32:"Commodore Amiga CD32",
+  cpc:"Amstrad CPC",amstrad:"Amstrad CPC",bbc:"BBC Microcomputer System",bbcmicro:"BBC Microcomputer System",electron:"Acorn Electron",atarist:"Atari ST",st:"Atari ST",
+  vcs:"Atari 2600",atarivcs:"Atari 2600",2600:"Atari 2600",7800:"Atari 7800",5200:"Atari 5200",lynx:"Atari Lynx",jaguar:"Atari Jaguar",
+  megadrive:"Sega Genesis",segamegadrive:"Sega Genesis",genesis:"Sega Genesis",md:"Sega Genesis",mastersystem:"Sega Master System",sms:"Sega Master System",
+  gamegear:"Sega Game Gear",gg:"Sega Game Gear",megacd:"Sega CD",segamegacd:"Sega CD",segacd:"Sega CD","32x":"Sega 32X",saturn:"Sega Saturn",dreamcast:"Sega Dreamcast",dc:"Sega Dreamcast",
+  nes:"Nintendo Entertainment System",famicom:"Nintendo Entertainment System",snes:"Super Nintendo Entertainment System",supernintendo:"Super Nintendo Entertainment System",superfamicom:"Super Nintendo Entertainment System",
+  n64:"Nintendo 64",gamecube:"Nintendo GameCube",gc:"Nintendo GameCube",ngc:"Nintendo GameCube",wii:"Nintendo Wii",wiiu:"Nintendo Wii U",switch:"Nintendo Switch",switch2:"Nintendo Switch 2",
+  gameboy:"Nintendo Game Boy",gb:"Nintendo Game Boy",gbc:"Nintendo Game Boy Color",gameboycolor:"Nintendo Game Boy Color",gba:"Nintendo Game Boy Advance",gameboyadvance:"Nintendo Game Boy Advance",
+  ds:"Nintendo DS",nds:"Nintendo DS","3ds":"Nintendo 3DS",n3ds:"Nintendo 3DS",virtualboy:"Nintendo Virtual Boy",
+  ps1:"Sony Playstation",psx:"Sony Playstation",psone:"Sony Playstation",playstation:"Sony Playstation",playstation1:"Sony Playstation",ps2:"Sony Playstation 2",playstation2:"Sony Playstation 2",
+  ps3:"Sony Playstation 3",playstation3:"Sony Playstation 3",ps4:"Sony Playstation 4",playstation4:"Sony Playstation 4",ps5:"Sony Playstation 5",playstation5:"Sony Playstation 5",
+  psp:"Sony PSP",vita:"Sony Playstation Vita",psvita:"Sony Playstation Vita",
+  xbox:"Microsoft Xbox",xbox360:"Microsoft Xbox 360",x360:"Microsoft Xbox 360",xboxone:"Microsoft Xbox One",xb1:"Microsoft Xbox One",xboxseries:"Microsoft Xbox Series X/S",xboxseriesx:"Microsoft Xbox Series X/S",xboxseriess:"Microsoft Xbox Series X/S",xboxseriesxs:"Microsoft Xbox Series X/S",
+  pcengine:"NEC TurboGrafx-16",turbografx:"NEC TurboGrafx-16",turbografx16:"NEC TurboGrafx-16",tg16:"NEC TurboGrafx-16",neogeo:"SNK Neo Geo AES",neogeoaes:"SNK Neo Geo AES",
+  msx:"Microsoft MSX",pc:"Windows",windows:"Windows",dos:"MS-DOS",msdos:"MS-DOS",vectrex:"GCE Vectrex",colecovision:"Coleco ColecoVision",intellivision:"Mattel Intellivision",cdi:"Philips CD-i",evercade:"Evercade"};
+const skey=s=>String(s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]/g,"");
+function knownSystems(){return [...new Set([...(platformNames.length?platformNames:COMMON_SYSTEMS),...EXTRA_SYSTEMS,...games.map(g=>g.platform).filter(Boolean)])]}
+function matchSystem(name){
+  const raw=String(name||"").trim();if(!raw)return {name:"",known:false};
+  const list=knownSystems(),k=skey(raw);
+  const exact=list.find(p=>skey(p)===k);if(exact)return {name:exact,known:true};
+  if(SYS_ALIASES[k])return {name:SYS_ALIASES[k],known:true};
+  // "Mega Drive" style names without the maker, e.g. "Saturn", "Spectrum", "Commodore Amiga 500"
+  const short=list.filter(p=>skey(p).endsWith(k)&&k.length>=4);if(short.length===1)return {name:short[0],known:true};
+  return {name:raw,known:false};
+}
+function normHave(v){const k=skey(v);if(!k)return "Loose";
+  if(/digital|download|eshop|steam|gog|psn|online/.test(k))return "Digital";
+  if(/sealed|new|mint(in|un)?seal|nos/.test(k))return "Sealed";
+  if(/^cib$|complete|manual/.test(k))return "CIB";
+  if(/box/.test(k))return "Boxed";return "Loose"}
+function normCond(v){const k=skey(v);if(!k)return "Good";
+  if(/mint|perfect|new/.test(k))return "Mint";if(/verygood|excellent|vg|great|nearmint|nm/.test(k))return "Very good";
+  if(/fair|average|used/.test(k))return "Fair";if(/poor|bad|damaged|worn|broken/.test(k))return "Poor";return "Good"}
+function normRegion(v){const k=skey(v);if(!k)return "PAL";
+  if(/ntscj|japan|jpn|^jp$|^j$/.test(k))return "NTSC-J";if(/ntsc|usa|^us$|america|canada|^u$/.test(k))return "NTSC-U";
+  if(/pal|uk|eu|europe|australia|aus|gb|england|germany|france|spain|italy/.test(k))return "PAL";return "Other"}
+function normStore(v){const k=skey(v);if(!k)return "Other";
+  const hit=[["gog","GOG"],["steam","Steam"],["epic","Epic Games Store"],["psn","PlayStation Store"],["playstation","PlayStation Store"],["eshop","Nintendo eShop"],["nintendo","Nintendo eShop"],["xbox","Xbox / Microsoft Store"],["microsoft","Xbox / Microsoft Store"],["itch","itch.io"]].find(([a])=>k.includes(a));
+  return hit?hit[1]:"Other"}
+function normDate(v){
+  if(v==null||v==="")return null;
+  if(typeof v==="number"||/^\d{4,5}(\.\d+)?$/.test(String(v).trim())){const n=+v;if(n>20000&&n<80000){const d=new Date(Date.UTC(1899,11,30)+n*864e5);return d.toISOString().slice(0,10)}}
+  const s=String(v).trim();let m;
+  if((m=s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/)))return `${m[1]}-${m[2].padStart(2,"0")}-${m[3].padStart(2,"0")}`;
+  if((m=s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})$/))){let y=+m[3];if(y<100)y+=y<50?2000:1900;let d=+m[1],mo=+m[2];if(mo>12&&d<=12)[d,mo]=[mo,d];return `${y}-${String(mo).padStart(2,"0")}-${String(d).padStart(2,"0")}`}
+  if((m=s.match(/^(\d{4})$/)))return `${m[1]}-01-01`;
+  const t=Date.parse(s);return isNaN(t)?null:new Date(t).toISOString().slice(0,10)}
+const HEAD_MAP=[["title",/^(title|game|gamename|gametitle|name)$/],["platform",/^(system|platform|console|machine|computer)$/],["region",/^region$/],
+  ["complete",/^(whatihave|whatyouhave|have|completeness|contents|cib|boxed|type)$/],["cond",/^(condition|grade)$/],["store",/^(store|shop|digitalstore)$/],
+  ["acquired",/^(dateacquired|acquired|date|purchased|datepurchased|bought|datebought)$/],["copies",/^(copies|quantity|qty|count|howmany)$/],["notes",/^(notes|note|comments|comment)$/],
+  ["description",/^(aboutthegame|description|about|overview)$/],["year",/^(year|releaseyear|released)$/],["publisher",/^publisher$/],["developer",/^developer$/],["genre",/^genres?$/]];
+function parseCSVText(text){
+  text=text.replace(/^﻿/,"");
+  const first=text.split(/\r?\n/,1)[0]||"";const delim=[",",";","\t"].map(d=>[d,first.split(d).length]).sort((a,b)=>b[1]-a[1])[0][0];
+  const rows=[];let row=[],f="",q=false;
+  for(let i=0;i<text.length;i++){const c=text[i];
+    if(q){if(c==='"'){if(text[i+1]==='"'){f+='"';i++}else q=false}else f+=c}
+    else if(c==='"')q=true;else if(c===delim){row.push(f);f=""}else if(c==="\n"||c==="\r"){if(c==="\r"&&text[i+1]==="\n")i++;row.push(f);rows.push(row);row=[];f=""}else f+=c}
+  if(f!==""||row.length){row.push(f);rows.push(row)}
+  return rows.filter(r=>r.some(x=>String(x).trim()!==""));
+}
+async function readZipText(file,name){const {stream}=await entryStream(file,name);return new Response(stream.pipeThrough(new TextEncoderStream())).text()}
+async function parseXlsx(file){
+  const ents=await zipEntries(file);
+  let sheetPath="xl/worksheets/sheet1.xml";
+  try{const wb=await readZipText(file,"xl/workbook.xml"),rels=await readZipText(file,"xl/_rels/workbook.xml.rels");
+    const sheets=[...wb.matchAll(/<sheet\b[^>]*?name="([^"]*)"[^>]*?r:id="([^"]*)"/g)];
+    const pick=sheets.find(s=>!/^(lists|how|instructions|by system)/i.test(unxml(s[1])))||sheets[0];
+    if(pick){const re=new RegExp(`<Relationship\\b[^>]*Id="${pick[2]}"[^>]*Target="([^"]*)"`);const m=rels.match(re)||rels.match(new RegExp(`Target="([^"]*)"[^>]*Id="${pick[2]}"`));if(m)sheetPath="xl/"+m[1].replace(/^\/?xl\//,"").replace(/^\//,"")}}catch(e){}
+  if(!ents.has(sheetPath))throw new Error("Couldn't find a worksheet in that Excel file.");
+  let shared=[];if(ents.has("xl/sharedStrings.xml")){const ss=await readZipText(file,"xl/sharedStrings.xml");shared=[...ss.matchAll(/<si>([\s\S]*?)<\/si>/g)].map(m=>[...m[1].matchAll(/<t[^>]*>([\s\S]*?)<\/t>/g)].map(t=>unxml(t[1])).join(""))}
+  const xml=await readZipText(file,sheetPath);const rows=[];
+  const colIdx=r=>{let n=0;for(const ch of r.replace(/\d+/g,""))n=n*26+ch.charCodeAt(0)-64;return n-1};
+  for(const rm of xml.matchAll(/<row\b[^>]*>([\s\S]*?)<\/row>/g)){const row=[];
+    for(const cm of rm[1].matchAll(/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)){
+      const attrs=cm[1],body=cm[2]||"";const r=(attrs.match(/\br="([A-Z]+)\d+"/)||[])[1];const t=(attrs.match(/\bt="([^"]*)"/)||[])[1];
+      let v="";if(t==="s")v=shared[+((body.match(/<v>([\s\S]*?)<\/v>/)||[])[1])]??"";else if(t==="inlineStr")v=[...body.matchAll(/<t[^>]*>([\s\S]*?)<\/t>/g)].map(x=>unxml(x[1])).join("");else{const m=body.match(/<v>([\s\S]*?)<\/v>/);v=m?unxml(m[1]):"";if(t!=="str"&&t!=="b"&&v!==""&&!isNaN(+v))v=+v}
+      row[r?colIdx(r):row.length]=v}
+    rows.push(Array.from(row,x=>x??""))}
+  return rows.filter(r=>r.some(x=>String(x).trim()!==""));
+}
+async function readSpreadsheet(file){
+  const head=new Uint8Array(await file.slice(0,4).arrayBuffer());
+  if(head[0]===0x50&&head[1]===0x4b)return parseXlsx(file);
+  if(/\.xls$/i.test(file.name))throw new Error("That's an old-style .xls file. In Excel, use File › Save As › Excel Workbook (.xlsx) or CSV, then import that.");
+  return parseCSVText(await file.text());
+}
+function rowsToGames(rows){
+  if(!rows.length)throw new Error("That file is empty.");
+  let hi=rows.findIndex(r=>r.some(c=>/^(title|game|name)$/i.test(String(c).trim())));if(hi<0)hi=0;
+  const head=rows[hi].map(c=>skey(c));const map={};
+  head.forEach((h,i)=>{const m=HEAD_MAP.find(([,re])=>re.test(h));if(m&&!(m[0] in map))map[m[0]]=i});
+  if(!("title" in map))throw new Error("Couldn't find a Title column. Use the template, or make sure the first row has headings like Title and System.");
+  const get=(r,k)=>k in map?r[map[k]]:"";
+  const out=[],unknown={};let examples=0;
+  for(const r of rows.slice(hi+1)){
+    const title=String(get(r,"title")||"").trim();if(!title)continue;
+    if(String(get(r,"notes")||"").trim().toUpperCase().startsWith("EXAMPLE")){examples++;continue}
+    const sys=matchSystem(get(r,"platform"));if(sys.name&&!sys.known)unknown[sys.name]=(unknown[sys.name]||0)+1;
+    const have=normHave(get(r,"complete"));
+    const g={title,platform:sys.name,region:normRegion(get(r,"region")),complete:have,cond:have==="Digital"?"":normCond(get(r,"cond")),store:have==="Digital"?normStore(get(r,"store")):"",
+      acquired:normDate(get(r,"acquired")),notes:String(get(r,"notes")||"").trim(),description:String(get(r,"description")||"").trim()};
+    for(const k of ["year","publisher","developer","genre"]){const v=String(get(r,k)||"").trim();if(v)g[k]=v}
+    const n=Math.max(1,Math.min(50,parseInt(get(r,"copies"))||1));
+    out.push({g,n})}
+  return {list:out,unknown,examples,noSystem:out.filter(x=>!x.g.platform).length};
+}
+function templateRows(){return [IMP_COLS,...IMP_EXAMPLES]}
+function buildTemplateCsv(){const q=v=>/[",\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;return new Blob(["﻿"+templateRows().map(r=>r.map(q).join(",")).join("\r\n")],{type:"text/csv"})}
+function buildTemplateXlsx(){
+  const x=s=>String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  const col=i=>{let s="";i++;while(i){const m=(i-1)%26;s=String.fromCharCode(65+m)+s;i=Math.floor((i-1)/26)}return s};
+  const cell=(v,r,c,s)=>`<c r="${col(c)}${r}" t="inlineStr"${s?` s="${s}"`:""}><is><t xml:space="preserve">${x(v)}</t></is></c>`;
+  const widths=[34,28,10,18,12,22,15,8,40];
+  const mine=[...new Set(games.map(g=>g.platform).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  const systems=[...mine,...knownSystems().filter(p=>!mine.includes(p)).sort((a,b)=>a.localeCompare(b))];
+  const lists=[["Systems",systems],["Regions",IMP_REGION],["What I have",IMP_HAVE],["Condition",IMP_COND],["Store",IMP_STORE]];
+  const rows=templateRows();
+  const sheet1=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+<sheetViews><sheetView workbookViewId="0" tabSelected="1"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>
+<cols>${widths.map((w,i)=>`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`).join("")}</cols>
+<sheetData>${rows.map((r,ri)=>`<row r="${ri+1}">${r.map((v,ci)=>cell(v,ri+1,ci,ri===0?1:(ri>0?3:0))).join("")}</row>`).join("")}</sheetData>
+<dataValidations count="5">${[["B",0],["C",1],["D",2],["E",3],["F",4]].map(([c,li])=>`<dataValidation type="list" allowBlank="1" showErrorMessage="0" sqref="${c}2:${c}5000"><formula1>Lists!$${col(li)}$2:$${col(li)}$${lists[li][1].length+1}</formula1></dataValidation>`).join("")}</dataValidations>
+</worksheet>`;
+  const maxLen=Math.max(...lists.map(l=>l[1].length));
+  const sheet2=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><cols>${lists.map((l,i)=>`<col min="${i+1}" max="${i+1}" width="${i===0?40:20}" customWidth="1"/>`).join("")}</cols>
+<sheetData>${Array.from({length:maxLen+1},(_,ri)=>`<row r="${ri+1}">${lists.map((l,ci)=>ri===0?cell(l[0],1,ci,1):(l[1][ri-1]!=null?cell(l[1][ri-1],ri+1,ci):"")).join("")}</row>`).join("")}</sheetData></worksheet>`;
+  const help=["How to fill in the template",
+    "",
+    "One game per row on the 'My games' sheet. Only Title and System are needed; everything else is optional.",
+    "Delete the three EXAMPLE rows (or leave them: rows marked EXAMPLE are skipped).",
+    "",
+    "Title: the game's name. Box art and a description are looked up automatically when you import.",
+    "System: pick from the drop-down, or type it. Short names work too: Spectrum, C64, Mega Drive, SNES, PS2, Xbox 360 and so on.",
+    "Region: PAL, NTSC-U, NTSC-J or Other. Left blank, PAL is used.",
+    "What I have: Loose, Boxed, Complete in box, Sealed or Digital.",
+    "Condition: Mint, Very good, Good, Fair or Poor. Left blank, Good is used.",
+    "Store: only for digital games, for example GOG or Steam.",
+    "Date acquired: any normal date, for example 2024-03-15 or 15/03/2024.",
+    "Copies: how many copies you own. 2 makes two entries.",
+    "Notes: anything you like.",
+    "",
+    "Then in Retro Game Library: Backup & tools › Import games › Import spreadsheet…",
+    "Save as Excel (.xlsx) or CSV. Both work."];
+  const sheet3=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><cols><col min="1" max="1" width="120" customWidth="1"/></cols>
+<sheetData>${help.map((t,ri)=>`<row r="${ri+1}">${t?cell(t,ri+1,0,ri===0?1:0):""}</row>`).join("")}</sheetData></worksheet>`;
+  const ws=n=>`<Override PartName="/xl/worksheets/sheet${n}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`;
+  return zipStore([
+    {name:"[Content_Types].xml",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>${ws(1)}${ws(2)}${ws(3)}<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`},
+    {name:"_rels/.rels",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`},
+    {name:"xl/workbook.xml",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="My games" sheetId="1" r:id="rId1"/><sheet name="How to fill it in" sheetId="3" r:id="rId3"/><sheet name="Lists" sheetId="2" r:id="rId2"/></sheets></workbook>`},
+    {name:"xl/_rels/workbook.xml.rels",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet3.xml"/><Relationship Id="rId4" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`},
+    {name:"xl/styles.xml",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="3"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font><font><i/><sz val="11"/><color rgb="FF8A8597"/><name val="Calibri"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE2DBF4"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="4"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`},
+    {name:"xl/worksheets/sheet1.xml",data:sheet1},
+    {name:"xl/worksheets/sheet2.xml",data:sheet2},
+    {name:"xl/worksheets/sheet3.xml",data:sheet3},
+  ],"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+}
+$("tplXlsxBtn").onclick=()=>saveExport("Retro Game Library import template.xlsx",buildTemplateXlsx(),"Excel workbook","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet","xlsx","importStatus");
+$("tplCsvBtn").onclick=()=>saveExport("Retro Game Library import template.csv",buildTemplateCsv(),"CSV spreadsheet","text/csv","csv","importStatus");
+$("importBtn").onclick=()=>$("importFile").click();
+let importing=false;
+$("importFile").onchange=async e=>{
+  const f=e.target.files[0];e.target.value="";if(!f||importing)return;
+  let res;try{res=rowsToGames(await readSpreadsheet(f))}catch(err){setStatus("importStatus",err.message||"Couldn't read that file.","err");return}
+  const {list,unknown,examples,noSystem}=res;
+  if(!list.length){setStatus("importStatus",examples?"Only the example rows were found. Add your games under them (or replace them) and try again.":"No games found in that file.","err");return}
+  setStatus("importStatus","");
+  const total=list.reduce((a,x)=>a+x.n,0),nSys=new Set(list.map(x=>x.g.platform).filter(Boolean)).size;
+  const have=new Set(games.map(ckey));const dupes=list.filter(x=>have.has(tkey(x.g)+"|"+x.g.platform)).length;
+  const unk=Object.entries(unknown);
+  const box=$("importConfirm");box.hidden=false;
+  box.innerHTML=`<p>Found <b>${total}</b> game${total===1?"":"s"} on <b>${nSys}</b> system${nSys===1?"":"s"} in <b>${esc(f.name)}</b>.${examples?` (${examples} example row${examples===1?"":"s"} skipped.)`:""}</p>`+
+    (unk.length?`<p class="warnline">These system names aren't in the list, so they'll be kept exactly as written: ${unk.map(([n,c])=>`<b>${esc(n)}</b> (${c})`).join(", ")}. If one is a typo, cancel, fix it in the spreadsheet and import again.</p>`:"")+
+    (noSystem?`<p class="warnline"><b>${noSystem}</b> row${noSystem===1?" has":"s have"} no system. ${noSystem===1?"It":"They"}'ll be added without one, so open ${noSystem===1?"it":"them"} afterwards to pick the system.</p>`:"")+
+    (dupes?`<label class="chk"><input type="checkbox" id="impSkip" checked> Skip the ${dupes} game${dupes===1?"":"s"} already in my library (same title and system)</label>`:"")+
+    `<label class="chk"><input type="checkbox" id="impArt" checked> Look up box art and descriptions (uses the first match; change any later with <b>Look up box art</b>)</label>`+
+    `<div class="row2"><button class="btn primary" id="impYes">Import</button><button class="btn ghost" id="impNo">Cancel</button></div>`;
+  $("impNo").onclick=()=>{box.hidden=true};
+  $("impYes").onclick=async()=>{
+    const skip=$("impSkip")?.checked,art=$("impArt").checked;box.hidden=true;importing=true;
+    const now=Date.now();const added=[];let i=0;
+    for(const {g,n} of list){if(skip&&have.has(tkey(g)+"|"+g.platform))continue;
+      for(let c=0;c<n;c++)added.push({...g,id:newId(),cover:null,createdAt:now+(i++),updatedAt:now})}
+    games.push(...added);render();scheduleSave();
+    if(!art||!added.length){importing=false;setStatus("importStatus",`Imported ${added.length} game${added.length===1?"":"s"}.`,"ok");toast(`Imported ${added.length} games`);return}
+    const prog=$("importProg"),bar=prog.querySelector("i");prog.hidden=false;bar.style.width="0%";
+    let covers=0,done=0;const misses=[];const seen=new Map();
+    try{
+      const plats=[...new Set(added.map(g=>g.platform).filter(Boolean))];
+      if(dbHandle){setStatus("importStatus","Reading the game database…");try{await loadPlatforms(plats,p=>bar.style.width=Math.round(p*30)+"%")}catch(e){}}
+      for(const g of added){
+        done++;setStatus("importStatus",`Finding box art… ${done} of ${added.length}`);bar.style.width=(30+Math.round(done/added.length*70))+"%";
+        if(!g.platform||(!dbHandle&&!isZx(g.platform))){misses.push(g);continue}
+        const key=g.platform+"|"+norm(g.title)+"|"+g.region;
+        let m=seen.get(key);
+        if(m===undefined){
+          m=null;try{m=await exactMatch(g.platform,g.title,g.region);if(!m){const r=await bothSearch(g.platform,g.title,g.region,3);if(r.length&&r[0].score<=1)m=r[0].g}}catch(e){}
+          seen.set(key,m);
+        }
+        if(!m){misses.push(g);continue}
+        Object.assign(g,{dbId:m.id,year:g.year||m.year||"",developer:g.developer||m.developer||"",publisher:g.publisher||m.publisher||"",genre:g.genre||m.genre||""});
+        if(!g.description&&m.overview)g.description=m.overview;
+        const twin=added.find(x=>x!==g&&x.cover&&x.dbId===m.id&&x.platform===g.platform);
+        if(twin)g.cover=twin.cover;
+        else if(m.covers.length){g.cover=imgURL(sortCovers(m,g.region)[0].file);await localise(g,m.names)}
+        if(g.cover)covers++;else misses.push(g);
+        if(done%10===0){render();scheduleSave()}
+      }
+    }finally{
+      importing=false;prog.hidden=true;render();scheduleSave();
+      setStatus("importStatus",`Imported ${added.length} game${added.length===1?"":"s"} and found box art for ${covers}.`+(misses.length?` ${misses.length} still need a picture: choose “Missing box art” in the drop-down next to the search box, then open each one and click Look up box art or Find online.`:""),"ok");
+      toast(`Imported ${added.length} games`);
+    }
+  };
+};
+
 $("dlDb").onclick=()=>runDbUpdate($("dlDb"),$("gateProg"),(t,ok,err)=>{$("dbDone").textContent=ok?"✓ Downloaded":"";$("gateErr").textContent=err?t:"";if(!ok&&!err)$("dlDb").textContent=t;else $("dlDb").textContent=ok?"Download again":"Download the game database"});
 $("noticeUpdate").onclick=()=>runDbUpdate($("noticeUpdate"),null,(t,ok,err)=>{$("dbNoticeText").textContent=t;if(ok){toast("Game database updated");setTimeout(checkDbAge,1500)}});
 $("updateDb").onclick=()=>runDbUpdate($("updateDb"),$("fillProg"),(t,ok,err)=>{setStatus("fillStatus",t,ok?"ok":err?"err":"");if(ok)refreshTools()});

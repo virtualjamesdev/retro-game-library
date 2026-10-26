@@ -37,8 +37,8 @@ cat > "$A/Contents/Info.plist" <<'PLIST'
   <key>CFBundleExecutable</key><string>retro-game-library</string>
   <key>CFBundleIconFile</key><string>icon.icns</string>
   <key>CFBundlePackageType</key><string>APPL</string>
-  <key>CFBundleShortVersionString</key><string>1.2.0</string>
-  <key>CFBundleVersion</key><string>1.2.0</string>
+  <key>CFBundleShortVersionString</key><string>1.3.0</string>
+  <key>CFBundleVersion</key><string>1.3.0</string>
   <key>LSMinimumSystemVersion</key><string>12.0</string>
   <key>LSApplicationCategoryType</key><string>public.app-category.entertainment</string>
   <key>NSHighResolutionCapable</key><true/>
