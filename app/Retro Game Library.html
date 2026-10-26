@@ -203,6 +203,9 @@ td .thumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .sheet{background:var(--panel);border-radius:10px;width:min(800px,100%);max-height:calc(100vh - 32px);overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.4)}
 .sheet header{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--panel);z-index:2}
 .sheet header .hbtns{display:flex;gap:8px}
+.modes{margin-top:14px}.modes button{padding:7px 16px}
+.tag.warn{border-color:var(--warn);color:var(--warn)}
+.card.hw .ph small{font-weight:400;opacity:.8}
 .impbox{margin-top:10px;padding:12px 14px;border:1px solid var(--line);border-radius:8px;background:var(--soft)}
 .impbox p{margin:0 0 8px}.impbox .warnline{color:var(--warn)}
 .impbox .chk{display:flex;gap:8px;align-items:flex-start;margin:6px 0;font-size:14px}.impbox .row2{margin-top:10px}
@@ -298,7 +301,7 @@ html:not(.desktop) .app-only{display:none!important}
     <div><button class="btn primary" id="startBtn" disabled>Open my library</button></div>
   </div>
   <p class="gerr" id="gateErr"></p>
-  <footer class="foot">Retro Game Library 1.3 · @VirtualJames 2026</footer>
+  <footer class="foot">Retro Game Library 1.4 · @VirtualJames 2026</footer>
 </div>
 
 <div class="wrap" id="app" hidden>
@@ -315,6 +318,7 @@ html:not(.desktop) .app-only{display:none!important}
     </div>
   </header>
 
+  <div class="modes seg" role="group" aria-label="Show games or hardware"><button id="mGames" aria-pressed="true">Games</button><button id="mHw" aria-pressed="false">Hardware</button></div>
   <div class="bar">
     <input type="search" id="q" placeholder="Search titles, notes…" aria-label="Search">
     <select id="show" aria-label="Show">
@@ -349,7 +353,7 @@ html:not(.desktop) .app-only{display:none!important}
   </div>
   <div class="chips" id="chips"></div>
   <main id="view"></main>
-  <footer class="foot">Retro Game Library 1.3 · @VirtualJames 2026 · <button class="linkbtn" id="aboutLink">About</button></footer>
+  <footer class="foot">Retro Game Library 1.4 · @VirtualJames 2026 · <button class="linkbtn" id="aboutLink">About</button></footer>
 </div>
 
 <!-- Add / edit -->
@@ -423,6 +427,53 @@ html:not(.desktop) .app-only{display:none!important}
 </div>
 
 <!-- Tools -->
+<!-- Hardware add / edit -->
+<div class="scrim" id="hwScrim" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="hwTitle">
+    <header><h2 id="hwTitle">Add hardware</h2><div class="hbtns"><button class="btn ghost" id="hwClose" type="button">Close</button><button class="btn primary" id="hwSaveTop" type="submit" form="hwForm">Save</button></div></header>
+    <form class="body" id="hwForm" autocomplete="off">
+      <div class="form">
+        <div>
+          <div class="drop" id="hwDrop" tabindex="0" role="button" aria-label="Choose a photo"><span id="hwDropText">Add a photo of your machine.<br><br>Drop or paste a picture in, or click to choose one.</span></div>
+          <p class="lbnote" id="hwNote"></p>
+          <div class="coverbtns">
+            <button type="button" class="btn sm" id="hwChoose">Choose picture…</button>
+            <button type="button" class="btn sm" id="hwFind">Find online…</button>
+            <button type="button" class="btn sm ghost" id="hwRemove" hidden>Remove</button>
+          </div>
+          <input type="file" id="hwFile" accept="image/*" hidden>
+        </div>
+        <div class="fields">
+          <label class="f">Type<select id="hType"><option>Console</option><option>Handheld</option><option>Computer</option><option>Controller</option><option>Accessory</option><option>Other</option></select></label>
+          <label class="f">System<select id="hPlatform"></select></label>
+          <label class="f full" id="hOtherWrap" hidden>System name<input id="hPlatformOther" placeholder="Type the name of the system"></label>
+          <label class="f full">Model / version<input id="hModel" placeholder="e.g. Mega Drive II, PS2 Slim SCPH-77003, ZX Spectrum +2A"></label>
+          <label class="f">Colour / edition<input id="hColour" placeholder="e.g. Black, Limited Edition"></label>
+          <label class="f">Region<select id="hRegion"><option>PAL</option><option>NTSC-U</option><option>NTSC-J</option><option>Other</option></select></label>
+          <label class="f">Serial number<input id="hSerial" placeholder="Optional"></label>
+          <label class="f">What you have<select id="hHave"><option value="Loose">Unit only</option><option value="Boxed">Boxed</option><option value="CIB">Complete in box</option><option value="Sealed">Sealed</option></select></label>
+          <label class="f">Condition<select id="hCond"><option>Mint</option><option>Very good</option><option selected>Good</option><option>Fair</option><option>Poor</option></select></label>
+          <label class="f">Working?<select id="hWorks"><option>Working</option><option>Needs repair</option><option>Not working</option><option>Untested</option></select></label>
+          <label class="f full">Mods / repairs<input id="hMods" placeholder="e.g. RGB mod, region-free, recapped, new belt"></label>
+          <label class="f">Date acquired<input id="hDate" type="date"></label>
+          <label class="f full">Notes<textarea id="hNotes" rows="3" placeholder="Where you got it, what's in the box, anything else"></textarea></label>
+        </div>
+      </div>
+    </form>
+    <div class="actions">
+      <div class="r">
+        <button class="btn" id="hwCopy" type="button" hidden>+ Another like this</button>
+        <button class="btn danger ghost" id="hwDel" type="button" hidden>Delete</button>
+        <span id="hwDelConfirm" hidden>Delete this item? <button class="btn danger" id="hwDelYes" type="button">Yes, delete</button> <button class="btn ghost" id="hwDelNo" type="button">Keep</button></span>
+      </div>
+      <div class="r">
+        <button class="btn ghost" id="hwCancel" type="button">Cancel</button>
+        <button class="btn primary" id="hwSave" type="submit" form="hwForm">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="scrim" id="toolsScrim" hidden>
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="toolsTitle">
     <header><h2 id="toolsTitle">Backup &amp; tools</h2><button class="btn ghost" id="toolsClose">Close</button></header>
@@ -487,7 +538,7 @@ html:not(.desktop) .app-only{display:none!important}
         <p>It's in no way a replacement for <b>LaunchBox</b>, which is brilliant for organising and playing your games on PC. If you haven't tried it, go and check it out at <a href="https://www.launchbox-app.com/" target="_blank" rel="noopener">launchbox-app.com</a>.</p>
         <p>Game information and box art come from the LaunchBox Games Database, built by the LaunchBox community. This app isn't made by, or affiliated with, LaunchBox.</p>
         <p>For the ZX Spectrum and ZX81, games LaunchBox doesn't have are looked up in <b>ZXDB</b>, the open Spectrum database, through <a href="https://zxinfo.dk/" target="_blank" rel="noopener">ZXInfo</a> and <a href="https://spectrumcomputing.co.uk/" target="_blank" rel="noopener">Spectrum Computing</a>. Thanks to everyone who keeps it going.</p>
-        <p>Retro Game Library 1.3 · @VirtualJames 2026 · Made with Claude Code</p>
+        <p>Retro Game Library 1.4 · @VirtualJames 2026 · Made with Claude Code</p>
       </section>
     </div>
   </div>
@@ -544,8 +595,8 @@ async function permitted(h,mode,ask){
 }
 
 /* ---------- state ---------- */
-let libDir=null, dbHandle=null, lbDir=null, lbNeedsAsk=false, games=[];
-let state={q:"",plat:"",show:"all",sort:ls.get("sort")||"title",view:ls.get("view")||"grid"};
+let libDir=null, dbHandle=null, lbDir=null, lbNeedsAsk=false, games=[], hardware=[];
+let state={mode:ls.get("mode")==="hw"?"hw":"games",hwPlat:"",hwShow:"all",q:"",plat:"",show:"all",sort:ls.get("sort")||"title",view:ls.get("view")||"grid"};
 let editing=null, pending=null, removeCoverFlag=false, inheritCover=null, alts=[], altIdx=0, picked=null;
 const tkey=g=>g.title.trim().toLowerCase();
 const ckey=g=>tkey(g)+"|"+g.platform;
@@ -599,21 +650,22 @@ $("startBtn").onclick=async()=>{
 
 let openDir=null;
 async function openLibrary(){
-  const prevDir=openDir, prevGames=games;
+  const prevDir=openDir, prevGames=games, prevHw=hardware;
   try{
     const fh=await libDir.getFileHandle("library.json",{create:true});
     const text=await (await fh.getFile()).text();
     const data=text.trim()?JSON.parse(text):{games:[]};
     games=Array.isArray(data)?data:(data.games||[]);
+    hardware=Array.isArray(data)?[]:(data.hardware||[]);
     const ALIAS={"ZX Spectrum":"Sinclair ZX Spectrum","Spectrum":"Sinclair ZX Spectrum","Mega Drive":"Sega Genesis","Sega Mega Drive":"Sega Genesis","C64":"Commodore 64","Amiga":"Commodore Amiga","NES":"Nintendo Entertainment System","SNES":"Super Nintendo Entertainment System","PlayStation":"Sony Playstation","PS1":"Sony Playstation","PS2":"Sony Playstation 2","Master System":"Sega Master System","Amstrad":"Amstrad CPC"};
     games.forEach(g=>{if(ALIAS[g.platform])g.platform=ALIAS[g.platform]});
   }catch(e){showGate(false);$("gateErr").textContent="Couldn't read library.json in that folder: "+e.message;return}
   // Switched to a new, empty folder while a library was open: bring the library with you.
-  if(prevDir&&prevGames.length&&!games.length&&!(await prevDir.isSameEntry(libDir).catch(()=>false))){
-    games=prevGames;
+  if(prevDir&&(prevGames.length||prevHw.length)&&!games.length&&!hardware.length&&!(await prevDir.isSameEntry(libDir).catch(()=>false))){
+    games=prevGames;hardware=prevHw;
     try{
       const from=await prevDir.getDirectoryHandle("covers");const to=await libDir.getDirectoryHandle("covers",{create:true});
-      for(const g of games){if(!g.cover||isWeb(g.cover))continue;const name=g.cover.split("/").pop();
+      for(const p of [...games.map(g=>g.cover),...hardware.map(h=>h.photo)]){if(!p||isWeb(p))continue;const name=p.split("/").pop();
         try{const f=await (await from.getFileHandle(name)).getFile();await writeFile(to,name,f)}catch(e){}}
     }catch(e){}
     urlCache.clear();scheduleSave();toast(`Your library was copied to “${libDir.name}”`);
@@ -679,13 +731,14 @@ async function checkDbAge(){
 let saveTimer=null, saveChain=Promise.resolve();
 function setPill(t,kind){const p=$("savePill");p.textContent=t;p.className="pill"+(kind?" "+kind:"")}
 async function writeFile(dir,name,data){const fh=await dir.getFileHandle(name,{create:true});const w=await fh.createWritable();await w.write(data);await w.close()}
-function toJSON(){return JSON.stringify({app:"Retro Game Library",version:2,savedAt:new Date().toISOString(),games},null,2)}
+function toJSON(){return JSON.stringify({app:"Retro Game Library",version:2,savedAt:new Date().toISOString(),games,hardware},null,2)}
 function scheduleSave(){clearTimeout(saveTimer);setPill("Saving…");saveTimer=setTimeout(()=>{saveChain=saveChain.then(doSave)},300)}
 async function doSave(){
   try{
     const json=toJSON();
     await writeFile(libDir,"library.json",json);
     await writeFile(libDir,"Retro Game Library.csv","\ufeff"+toCSV());
+    if(hardware.length)await writeFile(libDir,"Retro Game Library hardware.csv","\ufeff"+hwToCSV());
     const bk=await libDir.getDirectoryHandle("backups",{create:true});
     await writeFile(bk,`library-${stamp()}.json`,json);
     setPill("Saved "+new Date().toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"}),"ok");
@@ -710,7 +763,7 @@ async function saveCover(blob,id){
   await writeFile(covers,name,blob);return "covers/"+name;
 }
 async function dropCoverIfUnused(path,exceptId){
-  if(!path||isWeb(path)||games.some(g=>g.id!==exceptId&&g.cover===path))return;
+  if(!path||isWeb(path)||games.some(g=>g.id!==exceptId&&g.cover===path)||hardware.some(h=>h.id!==exceptId&&h.photo===path))return;
   try{const parts=path.split("/");const d=await dirFor(libDir,parts.slice(0,-1));await d.removeEntry(parts.at(-1))}catch(e){}
   urlCache.delete(path);
 }
@@ -938,6 +991,8 @@ function filtered(){
   return list.sort(by);
 }
 function render(){
+  if(state.mode==="hw")return renderHw();
+  syncModeUI();
   $("sort").value=state.sort;$("show").value=state.show;
   $("vGrid").setAttribute("aria-pressed",state.view==="grid");$("vList").setAttribute("aria-pressed",state.view==="list");
   const plats={};games.forEach(g=>plats[g.platform]=(plats[g.platform]||0)+1);
@@ -970,14 +1025,14 @@ function render(){
   }
   hydrate(v);
 }
-$("chips").onclick=e=>{const b=e.target.closest(".chip");if(!b)return;state.plat=b.dataset.p;render()};
+$("chips").onclick=e=>{const b=e.target.closest(".chip");if(!b)return;state[state.mode==="hw"?"hwPlat":"plat"]=b.dataset.p;render()};
 $("q").oninput=e=>{state.q=e.target.value;render()};
 $("sort").onchange=e=>{state.sort=e.target.value;ls.set("sort",state.sort);render()};
-$("show").onchange=e=>{state.show=e.target.value;render()};
+$("show").onchange=e=>{state[state.mode==="hw"?"hwShow":"show"]=e.target.value;render()};
 $("vGrid").onclick=()=>{state.view="grid";ls.set("view","grid");render()};
 $("vList").onclick=()=>{state.view="list";ls.set("view","list");render()};
-$("view").onclick=e=>{const el=e.target.closest("[data-id]");if(el)openEdit(games.find(g=>g.id===el.dataset.id))};
-$("view").onkeydown=e=>{if(e.key==="Enter"){const el=e.target.closest("tr[data-id]");if(el)openEdit(games.find(g=>g.id===el.dataset.id))}};
+$("view").onclick=e=>{const el=e.target.closest("[data-id]");if(!el)return;if(state.mode==="hw")openHw(hardware.find(h=>h.id===el.dataset.id));else openEdit(games.find(g=>g.id===el.dataset.id))};
+$("view").onkeydown=e=>{if(e.key==="Enter"){const el=e.target.closest("tr[data-id]");if(!el)return;if(state.mode==="hw")openHw(hardware.find(h=>h.id===el.dataset.id));else openEdit(games.find(g=>g.id===el.dataset.id))}};
 
 /* ---------- edit sheet ---------- */
 function setDrop(src){
@@ -1207,7 +1262,7 @@ $("delYes").onclick=async()=>{
   games=games.filter(x=>x.id!==g.id);await dropCoverIfUnused(g.cover,g.id);
   closeEdit();render();scheduleSave();toast("Deleted");
 };
-$("addBtn").onclick=()=>openEdit(null);
+$("addBtn").onclick=()=>state.mode==="hw"?openHw(null):openEdit(null);
 $("alsoOn").onclick=e=>{const b=e.target.closest("[data-open]");if(!b)return;const g=games.find(x=>x.id===b.dataset.open);if(g){closeEdit();openEdit(g)}};
 $("dupBtn").onclick=()=>{
   const src=editing;if(!src)return;closeEdit();openEdit(null);
@@ -1267,15 +1322,22 @@ function buildXlsx(){
   const sheet2=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><cols><col min="1" max="1" width="36" customWidth="1"/><col min="2" max="2" width="10" customWidth="1"/></cols>
 <sheetData>${sum.map((r,ri)=>`<row r="${ri+1}">${cell(r[0],ri+1,0,ri===0||ri===sum.length-1)}${typeof r[1]==="number"?`<c r="B${ri+1}"${ri===sum.length-1?' s="1"':''}><v>${r[1]}</v></c>`:cell(r[1],ri+1,1,true)}</row>`).join("")}</sheetData></worksheet>`;
+  const HWW=[30,24,12,18,9,18,16,11,13,26,13,30];const hcols=HWCOLS.filter(c=>c[0]!=="photo");
+  const hrows=[hcols.map(c=>c[1])].concat(hwSorted().map(h=>hcols.map(c=>c[0]==="complete"?(HW_HAVE[h.complete]||h.complete||""):h[c[0]]??"")));
+  const sheet3=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>${hcols.map((c,i)=>`<col min="${i+1}" max="${i+1}" width="${HWW[i]||16}" customWidth="1"/>`).join("")}</cols>
+<sheetData>${hrows.map((r,ri)=>`<row r="${ri+1}">${r.map((v,ci)=>cell(v,ri+1,ci,ri===0)).join("")}</row>`).join("")}</sheetData><autoFilter ref="A1:${col(hcols.length-1)}${hrows.length}"/></worksheet>`;
+  const HW=hardware.length>0;
   return zipStore([
-    {name:"[Content_Types].xml",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/></Types>`},
+    {name:"[Content_Types].xml",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>${HW?`<Override PartName="/xl/worksheets/sheet3.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`:""}<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/></Types>`},
     {name:"_rels/.rels",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/></Relationships>`},
     {name:"docProps/core.xml",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>Retro Game Library</dc:title><dc:creator>Retro Game Library</dc:creator><dcterms:created xsi:type="dcterms:W3CDTF">${new Date().toISOString().slice(0,19)}Z</dcterms:created></cp:coreProperties>`},
-    {name:"xl/workbook.xml",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="My games" sheetId="1" r:id="rId1"/><sheet name="By system" sheetId="2" r:id="rId2"/></sheets><definedNames><definedName name="_xlnm._FilterDatabase" localSheetId="0" hidden="1">'My games'!$A$1:$${col(XCOLS.length-1)}$${rows.length}</definedName></definedNames></workbook>`},
-    {name:"xl/_rels/workbook.xml.rels",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`},
+    {name:"xl/workbook.xml",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="My games" sheetId="1" r:id="rId1"/><sheet name="By system" sheetId="2" r:id="rId2"/>${HW?`<sheet name="Hardware" sheetId="3" r:id="rId4"/>`:""}</sheets><definedNames><definedName name="_xlnm._FilterDatabase" localSheetId="0" hidden="1">'My games'!$A$1:$${col(XCOLS.length-1)}$${rows.length}</definedName></definedNames></workbook>`},
+    {name:"xl/_rels/workbook.xml.rels",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/>${HW?`<Relationship Id="rId4" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet3.xml"/>`:""}<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`},
     {name:"xl/styles.xml",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE2DBF4"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="3"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="top"/></xf></cellXfs></styleSheet>`},
     {name:"xl/worksheets/sheet1.xml",data:sheet},
     {name:"xl/worksheets/sheet2.xml",data:sheet2},
+    ...(HW?[{name:"xl/worksheets/sheet3.xml",data:sheet3}]:[]),
   ],"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
 }
 
@@ -1322,7 +1384,8 @@ async function coverBytes(g){
 }
 async function buildPdf(onProgress){
   const W=595.28,H=841.89,M=36,cols=4,gap=14,cw=(W-2*M-gap*(cols-1))/cols,ch=cw*4/3,capH=34,rowH=ch+capH+8;
-  const list=sortedGames(),enc=new TextEncoder();
+  const glist=sortedGames(),enc=new TextEncoder();
+  const list=[...glist,...hwSorted().map(h=>({_hw:1,platform:"Hardware",title:hwName(h)+(h.model&&h.platform?" ("+h.platform+")":""),cover:h.photo,meta:[h.type,h.region,h.works].filter(Boolean).join(" · ")}))];
   const objs=[];const add=v=>{objs.push(v);return objs.length+2}; // ids 1 and 2 are the catalog and page tree
   const F1=add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>");
   const F2=add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>");
@@ -1332,8 +1395,8 @@ async function buildPdf(onProgress){
   const txt=(s,x,yy,size,bold,color)=>ops.push(`BT ${color||ink} /${bold?"F2":"F1"} ${size} Tf ${x.toFixed(2)} ${yy.toFixed(2)} Td ${pdfText(s)} Tj ET`);
   newPage();
   txt("Retro Game Library",M,y-22,22,true);
-  const nSys=new Set(list.map(g=>g.platform)).size;
-  txt(`My collection · ${list.length} game${list.length===1?"":"s"} on ${nSys} system${nSys===1?"":"s"} · ${new Date().toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"})}`,M,y-40,10,false,muted);
+  const nSys=new Set(glist.map(g=>g.platform)).size;
+  txt(`My collection · ${glist.length} game${glist.length===1?"":"s"} on ${nSys} system${nSys===1?"":"s"}${hardware.length?` · ${hardware.length} hardware item${hardware.length===1?"":"s"}`:""} · ${new Date().toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"})}`,M,y-40,10,false,muted);
   y-=60;
   let lastSys=null,done=0;
   const label={CIB:"Complete in box",Boxed:"Boxed",Loose:"Loose",Sealed:"Sealed",Digital:"Digital"};
@@ -1344,7 +1407,7 @@ async function buildPdf(onProgress){
       const n=list.filter(x=>x.platform===g.platform).length;
       ops.push(`${accent} ${M} ${(y-20).toFixed(2)} ${(W-2*M).toFixed(2)} 1.2 re f`);
       txt(fitText(g.platform,13,W-2*M-80,true),M,y-14,13,true);
-      txt(`${n} game${n===1?"":"s"}`,W-M-textW(`${n} game${n===1?"":"s"}`,10),y-14,10,false,muted);
+      const nl=`${n} ${g._hw?"item":"game"}${n===1?"":"s"}`;txt(nl,W-M-textW(nl,10),y-14,10,false,muted);
       y-=30;lastSys=g.platform;
     }
     if(col===0&&y-rowH<M+20)newPage();
@@ -1360,7 +1423,7 @@ async function buildPdf(onProgress){
     }
     const lines=wrap2(g.title,8.5,cw,true);
     lines.forEach((l,i)=>txt(l,x,top-ch-11-i*10,8.5,true));
-    const meta=[g.complete==="Digital"?("Digital"+(g.store?" ("+g.store+")":"")):(label[g.complete]||g.complete),g.complete==="Digital"?"":g.region,g.year].filter(Boolean).join(" · ");
+    const meta=g._hw?g.meta:[g.complete==="Digital"?("Digital"+(g.store?" ("+g.store+")":"")):(label[g.complete]||g.complete),g.complete==="Digital"?"":g.region,g.year].filter(Boolean).join(" · ");
     txt(fitText(meta,7.5,cw),x,top-ch-11-lines.length*10,7.5,false,muted);
     col++;if(col===cols){col=0;y-=rowH}
     done++;onProgress&&onProgress(done/list.length);
@@ -1376,7 +1439,7 @@ async function buildPdf(onProgress){
     const xo=p.imgs.length?` /XObject << ${p.imgs.map(([n,id])=>`/${n} ${id} 0 R`).join(" ")} >>`:"";
     pageIds.push(add(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${W} ${H}] /Resources << /Font << /F1 ${F1} 0 R /F2 ${F2} 0 R >>${xo} >> /Contents ${cid} 0 R >>`));
   });
-  const info=add(`<< /Title ${pdfText("Retro Game Library")} /Producer ${pdfText("Retro Game Library 1.3")} /Author ${pdfText("@VirtualJames 2026")} >>`);
+  const info=add(`<< /Title ${pdfText("Retro Game Library")} /Producer ${pdfText("Retro Game Library 1.4")} /Author ${pdfText("@VirtualJames 2026")} >>`);
   const all=[`<< /Type /Catalog /Pages 2 0 R >>`,`<< /Type /Pages /Kids [${pageIds.map(i=>i+" 0 R").join(" ")}] /Count ${pageIds.length} >>`,...objs];
   const chunks=[];let pos=0;const offsets=[];
   const push=s=>{const b=typeof s==="string"?enc.encode(s):s;chunks.push(b);pos+=b.length};
@@ -1421,7 +1484,7 @@ async function refreshTools(){
 $("openTools").onclick=()=>{refreshTools();refreshLb();$("toolsScrim").hidden=false};
 $("toolsClose").onclick=()=>$("toolsScrim").hidden=true;
 $("aboutLink").onclick=()=>{refreshTools();refreshLb();$("toolsScrim").hidden=false;setTimeout(()=>$("about").scrollIntoView({block:"start"}),50)};
-$("xlsxBtn").onclick=()=>{if(!games.length){setStatus("csvStatus","Add some games first.","err");return}saveExport(`Retro Game Library ${stamp()}.xlsx`,buildXlsx(),"Excel workbook","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet","xlsx","csvStatus")};
+$("xlsxBtn").onclick=()=>{if(!games.length&&!hardware.length){setStatus("csvStatus","Add some games first.","err");return}saveExport(`Retro Game Library ${stamp()}.xlsx`,buildXlsx(),"Excel workbook","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet","xlsx","csvStatus")};
 $("pdfBtn").onclick=async()=>{
   if(!games.length){setStatus("csvStatus","Add some games first.","err");return}
   const b=$("pdfBtn"),prog=$("pdfProg"),bar=prog.querySelector("i");b.disabled=true;prog.hidden=false;setStatus("csvStatus","Making the PDF…");
@@ -1493,14 +1556,16 @@ $("restoreFile").onchange=async e=>{
   const f=e.target.files[0];e.target.value="";if(!f)return;
   let data;try{data=JSON.parse(await f.text())}catch(err){setStatus("restoreStatus","That file isn't a valid backup.","err");return}
   const list=(Array.isArray(data)?data:data?.games||[]).filter(g=>g&&g.title&&g.platform);
-  if(!list.length){setStatus("restoreStatus","No games found in that file.","err");return}
+  const hwList=(Array.isArray(data)?[]:data?.hardware||[]).filter(h=>h&&(h.model||h.platform));
+  if(!list.length&&!hwList.length){setStatus("restoreStatus","No games found in that file.","err");return}
   const box=$("restoreConfirm");box.hidden=false;
-  box.innerHTML=`Restore <b>${list.length}</b> games from <b>${esc(f.name)}</b>? <button class="btn primary" id="rsYes">Restore</button> <button class="btn ghost" id="rsNo">Cancel</button>`;
+  box.innerHTML=`Restore <b>${list.length}</b> games${hwList.length?` and <b>${hwList.length}</b> hardware items`:""} from <b>${esc(f.name)}</b>? <button class="btn primary" id="rsYes">Restore</button> <button class="btn ghost" id="rsNo">Cancel</button>`;
   $("rsNo").onclick=()=>box.hidden=true;
   $("rsYes").onclick=()=>{
     box.hidden=true;
     for(const g of list){const id=g.id||newId();const i=games.findIndex(x=>x.id===id);const row={...g,id};if(i>=0)games[i]=row;else games.push(row)}
-    render();scheduleSave();setStatus("restoreStatus",`Restored ${list.length} games.`,"ok");
+    for(const h of hwList){const id=h.id||newId();const i=hardware.findIndex(x=>x.id===id);const row={...h,id};if(i>=0)hardware[i]=row;else hardware.push(row)}
+    render();scheduleSave();setStatus("restoreStatus",`Restored ${list.length} games${hwList.length?` and ${hwList.length} hardware items`:""}.`,"ok");
   };
 };
 /* ---------- Import from a spreadsheet (CSV or Excel) ---------- */
@@ -1735,6 +1800,141 @@ $("importFile").onchange=async e=>{
     }
   };
 };
+
+/* ---------- Hardware: consoles, computers, handhelds, controllers and accessories ---------- */
+const HW_TYPES=["Console","Handheld","Computer","Controller","Accessory","Other"];
+const HW_WORKS=["Working","Needs repair","Not working","Untested"];
+const HW_HAVE={Loose:"Unit only",Boxed:"Boxed",CIB:"Complete in box",Sealed:"Sealed"};
+let hwEditing=null,hwPending=null,hwRemove=false;
+const hwName=h=>h.model||[h.type,h.platform].filter(Boolean).join(" · ")||"Hardware";
+function syncModeUI(){
+  const hw=state.mode==="hw";
+  $("mGames").setAttribute("aria-pressed",!hw);$("mHw").setAttribute("aria-pressed",hw);
+  $("addBtn").textContent=hw?"+ Add hardware":"+ Add game";
+  $("q").placeholder=hw?"Search hardware, models, serials…":"Search titles, notes…";
+  const want=hw?"hw":"games";
+  if($("show").dataset.mode!==want){
+    $("show").dataset.mode=want;
+    $("show").innerHTML=hw?`<option value="all">All hardware</option>${HW_TYPES.map(t=>`<option value="t:${t}">${t==="Accessory"?"Accessories":t+"s"}</option>`).join("")}<option value="w:fix">Needs repair or not working</option><option value="w:untested">Untested</option><option value="boxed">Boxed or complete</option>`
+      :`<option value="all">All games</option><option value="dupes">Duplicate copies</option><option value="multi">On several systems</option><option value="physical">Physical only</option><option value="digital">Digital only</option><option value="nocover">Missing box art</option>`;
+  }
+  $("show").value=hw?state.hwShow:state.show;
+  const so=$("sort").options;const sl=hw?["Name A–Z","System","Date acquired","Recently added"]:["Title A–Z","System","Year","Recently added"];for(let i=0;i<so.length&&i<4;i++)so[i].textContent=sl[i];
+  const lab=hw?["Items","Systems","Working","Boxed"]:["Games","Systems","Complete","Spare copies"];
+  document.querySelectorAll("#app .counts span").forEach((s,i)=>s.textContent=lab[i]);
+}
+function hwFiltered(){
+  const q=state.q.trim().toLowerCase(),f=state.hwShow;
+  const list=hardware.filter(h=>(!state.hwPlat||h.platform===state.hwPlat)
+    &&(f==="all"||(f.startsWith("t:")&&h.type===f.slice(2))||(f==="w:fix"&&/repair|not/i.test(h.works||""))||(f==="w:untested"&&(h.works||"Untested")==="Untested")||(f==="boxed"&&["Boxed","CIB","Sealed"].includes(h.complete)))
+    &&(!q||[h.model,h.platform,h.type,h.colour,h.serial,h.mods,h.notes,h.region].join(" ").toLowerCase().includes(q)));
+  const by={title:(a,b)=>hwName(a).localeCompare(hwName(b)),platform:(a,b)=>(a.platform||"").localeCompare(b.platform||"")||hwName(a).localeCompare(hwName(b)),
+    year:(a,b)=>(a.acquired||"9999").localeCompare(b.acquired||"9999"),added:(a,b)=>(b.createdAt||0)-(a.createdAt||0)}[state.sort]||((a,b)=>0);
+  return list.sort(by);
+}
+function renderHw(){
+  syncModeUI();
+  $("sort").value=state.sort;
+  $("vGrid").setAttribute("aria-pressed",state.view==="grid");$("vList").setAttribute("aria-pressed",state.view==="list");
+  const plats={};hardware.forEach(h=>{const p=h.platform||"No system";plats[p]=(plats[p]||0)+1});
+  $("cGames").textContent=hardware.length;$("cPlat").textContent=Object.keys(plats).filter(p=>p!=="No system").length;
+  $("cCib").textContent=hardware.filter(h=>h.works==="Working").length;
+  $("cDup").textContent=hardware.filter(h=>["Boxed","CIB","Sealed"].includes(h.complete)).length;
+  const names=Object.keys(plats).sort((a,b)=>a.localeCompare(b));
+  if(state.hwPlat&&!plats[state.hwPlat])state.hwPlat="";
+  $("chips").innerHTML=names.length<2?"":[`<button class="chip" data-p="" aria-pressed="${!state.hwPlat}">All<small>${hardware.length}</small></button>`].concat(names.map(p=>`<button class="chip" data-p="${esc(p)}" aria-pressed="${state.hwPlat===p}">${esc(p)}<small>${plats[p]}</small></button>`)).join("");
+  const v=$("view");
+  if(!hardware.length){
+    v.innerHTML=`<div class="empty"><h2>No hardware yet</h2><p>Keep track of your consoles, computers, handhelds, controllers and accessories: model, region, serial number, mods and whether they work.</p><button class="btn primary" id="emptyHw">+ Add your first machine</button></div>`;
+    $("emptyHw").onclick=()=>openHw(null);return;
+  }
+  const list=hwFiltered();
+  if(!list.length){v.innerHTML=`<div class="empty"><h2>No matches</h2><p>Nothing matches that search or filter.</p></div>`;return}
+  const wTag=w=>w==="Working"?'<span class="tag cib">Working</span>':/repair|Not/.test(w||"")?`<span class="tag warn">${esc(w)}</span>`:`<span class="tag">${esc(w||"Untested")}</span>`;
+  const haveTag=c=>c==="CIB"?'<span class="tag cib">CIB</span>':c==="Sealed"?'<span class="tag sealed">Sealed</span>':c==="Boxed"?'<span class="tag">Boxed</span>':"";
+  if(state.view==="grid"){
+    v.innerHTML=`<div class="grid">${list.map(h=>`<button class="card hw" data-id="${esc(h.id)}"${h.notes?` title="${esc(h.notes.slice(0,300))}"`:""}>
+      <span class="plat">${esc(h.platform||h.type||"Hardware")}</span>
+      <span class="cover"><span class="ph">${esc(hwName(h))}<br><small>${esc(h.type||"")}</small></span>${coverImg(h.photo)}</span>
+      <span class="meta"><h3>${esc(hwName(h))}</h3><span class="tags"><span class="tag">${esc(h.type||"Hardware")}</span>${h.region?`<span class="tag">${esc(h.region)}</span>`:""}${haveTag(h.complete)}${wTag(h.works)}</span></span>
+    </button>`).join("")}</div>`;
+  }else{
+    v.innerHTML=`<div class="tablewrap"><table><thead><tr><th></th><th>Item</th><th>System</th><th>Type</th><th>Region</th><th>Have</th><th>Condition</th><th>Working</th></tr></thead><tbody>${list.map(h=>`<tr class="row" data-id="${esc(h.id)}" tabindex="0"><td><div class="thumb">${coverImg(h.photo)}</div></td><td><b>${esc(hwName(h))}</b>${h.colour?` <small>${esc(h.colour)}</small>`:""}</td><td>${esc(h.platform||"")}</td><td>${esc(h.type||"")}</td><td>${esc(h.region||"")}</td><td>${esc(HW_HAVE[h.complete]||h.complete||"")}</td><td>${esc(h.cond||"")}</td><td>${wTag(h.works)}</td></tr>`).join("")}</tbody></table></div>`;
+  }
+  hydrate(v);
+}
+function setHwDrop(src){
+  const d=$("hwDrop");d.querySelector("img")?.remove();$("hwDropText").hidden=!!src;$("hwRemove").hidden=!src;
+  if(src){const i=document.createElement("img");i.src=src;i.alt="Photo";i.onerror=()=>{i.remove();$("hwDropText").hidden=false};d.appendChild(i)}
+}
+function hwPlatVal(){const s=$("hPlatform");return s.value==="__other"?$("hPlatformOther").value.trim():(s.value||"")}
+function fillHwPlatforms(cur){
+  const sel=$("hPlatform");sel.innerHTML=`<option value="">(None / not for one system)</option>`+$("fPlatform").innerHTML.replace(/<option value="" disabled[^>]*>[^<]*<\/option>/,"");
+  if(!sel.querySelector('option[value="__other"]'))sel.insertAdjacentHTML("beforeend",`<option value="__other">Other…</option>`);
+  const has=[...sel.options].some(o=>o.value===cur);
+  if(cur&&!has){sel.value="__other";$("hPlatformOther").value=cur}else{sel.value=cur||"";$("hPlatformOther").value=""}
+  $("hOtherWrap").hidden=sel.value!=="__other";
+}
+function openHw(h,copyFrom){
+  hwEditing=h||null;hwPending=null;hwRemove=false;const src=h||copyFrom||null;
+  $("hwTitle").textContent=h?"Edit hardware":copyFrom?"Add another":"Add hardware";
+  updatePlatList();fillHwPlatforms(src?.platform||state.hwPlat||"");
+  $("hType").value=src?.type||"Console";$("hModel").value=src?.model||"";$("hColour").value=src?.colour||"";$("hRegion").value=src?.region||"PAL";
+  $("hSerial").value=h?.serial||"";$("hHave").value=src?.complete||"Loose";$("hCond").value=src?.cond||"Good";$("hWorks").value=src?.works||"Working";
+  $("hMods").value=src?.mods||"";$("hDate").value=h?.acquired||"";$("hNotes").value=h?.notes||"";
+  setHwDrop("");if(h?.photo)coverURL(h.photo).then(u=>{if(hwEditing===h&&u&&!hwPending)setHwDrop(u)});
+  $("hwDel").hidden=!h;$("hwCopy").hidden=!h;$("hwDelConfirm").hidden=true;$("hwNote").textContent="";
+  $("hwScrim").hidden=false;setTimeout(()=>$("hModel").focus(),30);
+}
+function closeHw(){$("hwScrim").hidden=true;if(hwPending?.preview)URL.revokeObjectURL(hwPending.preview);hwPending=null;hwEditing=null}
+async function takeHwImage(file){
+  if(!file||!(file.type||"image/").startsWith("image/"))return;
+  const blob=await shrink(file);if(hwPending?.preview)URL.revokeObjectURL(hwPending.preview);
+  hwPending={blob,preview:URL.createObjectURL(blob)};hwRemove=false;setHwDrop(hwPending.preview);$("hwNote").textContent="";
+}
+$("hPlatform").onchange=()=>{$("hOtherWrap").hidden=$("hPlatform").value!=="__other";if(!$("hOtherWrap").hidden)$("hPlatformOther").focus()};
+$("hwChoose").onclick=()=>$("hwFile").click();
+$("hwFile").onchange=e=>{takeHwImage(e.target.files[0]);e.target.value=""};
+$("hwRemove").onclick=()=>{if(hwPending?.preview)URL.revokeObjectURL(hwPending.preview);hwPending=null;hwRemove=true;setHwDrop("")};
+$("hwDrop").onclick=()=>$("hwFile").click();
+$("hwDrop").ondragover=e=>{e.preventDefault();$("hwDrop").classList.add("over")};
+$("hwDrop").ondragleave=()=>$("hwDrop").classList.remove("over");
+$("hwDrop").ondrop=e=>{e.preventDefault();$("hwDrop").classList.remove("over");const f=e.dataTransfer.files[0];if(f)takeHwImage(f)};
+document.addEventListener("paste",e=>{if($("hwScrim").hidden)return;const f=[...(e.clipboardData?.files||[])].find(f=>f.type.startsWith("image/"));if(f){e.preventDefault();takeHwImage(f)}});
+$("hwFind").onclick=()=>{const t=[$("hModel").value.trim(),hwPlatVal(),$("hType").value].filter(Boolean).join(" ");openURL("https://www.google.com/search?tbm=isch&q="+encodeURIComponent(t||"retro console"));
+  $("hwNote").textContent="Right-click the picture you want, choose Copy image, then press "+(/mac/i.test(navigator.platform)?"Cmd":"Ctrl")+"+V here. A photo of your own machine works best."};
+$("hwClose").onclick=closeHw;$("hwCancel").onclick=closeHw;
+$("hwScrim").onmousedown=e=>{if(e.target===$("hwScrim"))closeHw()};
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("hwScrim").hidden)closeHw()});
+$("hwCopy").onclick=()=>{const src=hwEditing;closeHw();openHw(null,src)};
+$("hwDel").onclick=()=>{$("hwDelConfirm").hidden=false};
+$("hwDelNo").onclick=()=>{$("hwDelConfirm").hidden=true};
+$("hwDelYes").onclick=async()=>{const h=hwEditing;if(!h)return;hardware=hardware.filter(x=>x.id!==h.id);closeHw();await dropCoverIfUnused(h.photo,h.id);render();scheduleSave();toast("Removed")};
+$("hwForm").onsubmit=async e=>{
+  e.preventDefault();
+  const btns=[$("hwSave"),$("hwSaveTop")];btns.forEach(b=>{b.disabled=true;b.textContent="Saving…"});
+  try{
+    const now=Date.now(),id=hwEditing?.id||newId();
+    const h={...(hwEditing||{}),id,type:$("hType").value,platform:hwPlatVal(),model:$("hModel").value.trim(),colour:$("hColour").value.trim(),region:$("hRegion").value,
+      serial:$("hSerial").value.trim(),complete:$("hHave").value,cond:$("hCond").value,works:$("hWorks").value,mods:$("hMods").value.trim(),acquired:$("hDate").value||null,
+      notes:$("hNotes").value.trim(),photo:hwEditing?.photo||null,createdAt:hwEditing?.createdAt||now,updatedAt:now};
+    if(!h.model&&!h.platform){$("hwNote").textContent="Give it a model name or pick the system.";$("hModel").focus();return}
+    const old=hwEditing?.photo||null;
+    if(hwPending?.blob)h.photo=await saveCover(hwPending.blob,"hw-"+id);else if(hwRemove)h.photo=null;
+    if(hwEditing)hardware[hardware.findIndex(x=>x.id===id)]=h;else hardware.push(h);
+    if(old&&old!==h.photo)await dropCoverIfUnused(old,id);
+    const was=!!hwEditing;closeHw();render();scheduleSave();toast(was?"Hardware updated":"Added to your hardware");
+  }catch(err){toast("Couldn't save: "+err.message)}
+  finally{btns.forEach(b=>{b.disabled=false;b.textContent="Save"})}
+};
+$("mGames").onclick=()=>{state.mode="games";ls.set("mode","games");render()};
+$("mHw").onclick=()=>{state.mode="hw";ls.set("mode","hw");render()};
+const HWCOLS=[["model","Model / version"],["platform","System"],["type","Type"],["colour","Colour / edition"],["region","Region"],["serial","Serial number"],["complete","What I have"],["cond","Condition"],["works","Working?"],["mods","Mods / repairs"],["acquired","Date acquired"],["notes","Notes"],["photo","Photo"]];
+function hwSorted(){return [...hardware].sort((a,b)=>(a.platform||"").localeCompare(b.platform||"")||hwName(a).localeCompare(hwName(b)))}
+function hwToCSV(){
+  const q=v=>{v=v==null?"":String(v);return /[",\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
+  return [HWCOLS.map(c=>c[1]).join(",")].concat(hwSorted().map(h=>HWCOLS.map(c=>q(c[0]==="complete"?(HW_HAVE[h.complete]||h.complete):h[c[0]])).join(","))).join("\r\n");
+}
 
 $("dlDb").onclick=()=>runDbUpdate($("dlDb"),$("gateProg"),(t,ok,err)=>{$("dbDone").textContent=ok?"✓ Downloaded":"";$("gateErr").textContent=err?t:"";if(!ok&&!err)$("dlDb").textContent=t;else $("dlDb").textContent=ok?"Download again":"Download the game database"});
 $("noticeUpdate").onclick=()=>runDbUpdate($("noticeUpdate"),null,(t,ok,err)=>{$("dbNoticeText").textContent=t;if(ok){toast("Game database updated");setTimeout(checkDbAge,1500)}});

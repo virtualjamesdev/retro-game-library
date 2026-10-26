@@ -48,6 +48,16 @@ The drop-down next to the search box shows only duplicates, games on
 several systems, physical or digital games only, or games missing box art.
 
 
+HARDWARE
+Click "Hardware" at the top to keep track of your consoles, computers,
+handhelds, controllers and accessories: model and version, colour or
+edition, region, serial number, boxed or not, condition, whether it works,
+and any mods or repairs. Add a photo of your own machine (drop, paste or
+"Choose picture…"). Filter by type or by "Needs repair or not working".
+Hardware is saved in library.json with your games, gets its own
+"Retro Game Library hardware.csv", its own sheet in the Excel export and
+its own section in the PDF.
+
 IMPORTING FROM A SPREADSHEET
 Already have your collection in a spreadsheet? Open "Backup & tools" and,
 under "Import games", click "Template (Excel)…" to get a ready-made sheet
@@ -65,6 +75,7 @@ Everything is saved straight away into your library folder:
                                LibreOffice, Google Sheets)
 - covers                       all the box art and your own pictures
 - backups                      a dated copy for each day you make changes
+- Retro Game Library hardware.csv   your hardware list (once you add some)
 
 The top of the app shows the folder it's "Saving to". Click it to move your
 library somewhere else; if the new folder is empty, everything is copied
@@ -100,7 +111,7 @@ brilliant for organising and playing your games on PC. Check it out at
 launchbox-app.com.
 
 CREDITS
-Retro Game Library 1.3  ·  @VirtualJames 2026
+Retro Game Library 1.4  ·  @VirtualJames 2026
 Game information and box art: LaunchBox Games Database
 (gamesdb.launchbox-app.com), built by the LaunchBox community.
 This app isn't made by, or affiliated with, LaunchBox.
