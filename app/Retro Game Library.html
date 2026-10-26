@@ -975,6 +975,18 @@ async function localiseAll(){
 }
 
 /* ---------- render ---------- */
+// Search ignores case, accents, dashes, dots and spaces ("zx81" finds "ZX-81"), every word must match,
+// and system nicknames work ("c64", "mega drive", "ps2").
+function searchHit(q,fields,plat){
+  if(!q)return true;
+  const hay=fields.filter(Boolean).join(" ").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+  if(hay.includes(q))return true;
+  const flat=hay.replace(/[^a-z0-9]/g,""),qf=skey(q);
+  if(qf&&flat.includes(qf))return true;
+  const alias=SYS_ALIASES[qf];if(alias&&plat===alias)return true;
+  const words=q.split(/\s+/).filter(Boolean);
+  return words.length>1&&words.every(w=>{const k=skey(w);return !k||flat.includes(k)||(SYS_ALIASES[k]&&plat===SYS_ALIASES[k])});
+}
 function filtered(){
   const q=state.q.trim().toLowerCase();
   const nCopy={},plats={};
@@ -985,7 +997,7 @@ function filtered(){
     &&(state.show!=="nocover"||!g.cover)
     &&(state.show!=="digital"||g.complete==="Digital")
     &&(state.show!=="physical"||g.complete!=="Digital")
-    &&(!q||[g.title,g.platform,g.notes,g.region,g.publisher,g.developer].join(" ").toLowerCase().includes(q)));
+    &&searchHit(q,[g.title,g.platform,g.notes,g.region,g.publisher,g.developer,g.genre,g.store],g.platform));
   const by={title:(a,b)=>a.title.localeCompare(b.title)||a.platform.localeCompare(b.platform),platform:(a,b)=>a.platform.localeCompare(b.platform)||a.title.localeCompare(b.title),
     year:(a,b)=>(a.year||"9999").localeCompare(b.year||"9999")||a.title.localeCompare(b.title),added:(a,b)=>(b.createdAt||0)-(a.createdAt||0)}[state.sort]||((a,b)=>0);
   return list.sort(by);
@@ -1827,7 +1839,7 @@ function hwFiltered(){
   const q=state.q.trim().toLowerCase(),f=state.hwShow;
   const list=hardware.filter(h=>(!state.hwPlat||h.platform===state.hwPlat)
     &&(f==="all"||(f.startsWith("t:")&&h.type===f.slice(2))||(f==="w:fix"&&/repair|not/i.test(h.works||""))||(f==="w:untested"&&(h.works||"Untested")==="Untested")||(f==="boxed"&&["Boxed","CIB","Sealed"].includes(h.complete)))
-    &&(!q||[h.model,h.platform,h.type,h.colour,h.serial,h.mods,h.notes,h.region].join(" ").toLowerCase().includes(q)));
+    &&searchHit(q,[h.model,h.platform,h.type,h.colour,h.serial,h.mods,h.notes,h.region],h.platform));
   const by={title:(a,b)=>hwName(a).localeCompare(hwName(b)),platform:(a,b)=>(a.platform||"").localeCompare(b.platform||"")||hwName(a).localeCompare(hwName(b)),
     year:(a,b)=>(a.acquired||"9999").localeCompare(b.acquired||"9999"),added:(a,b)=>(b.createdAt||0)-(a.createdAt||0)}[state.sort]||((a,b)=>0);
   return list.sort(by);
