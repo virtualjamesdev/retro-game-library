@@ -301,7 +301,7 @@ html:not(.desktop) .app-only{display:none!important}
     <div><button class="btn primary" id="startBtn" disabled>Open my library</button></div>
   </div>
   <p class="gerr" id="gateErr"></p>
-  <footer class="foot">Retro Game Library 1.4 · @VirtualJames 2026</footer>
+  <footer class="foot">Retro Game Library 1.4.1 · @VirtualJames 2026</footer>
 </div>
 
 <div class="wrap" id="app" hidden>
@@ -353,7 +353,7 @@ html:not(.desktop) .app-only{display:none!important}
   </div>
   <div class="chips" id="chips"></div>
   <main id="view"></main>
-  <footer class="foot">Retro Game Library 1.4 · @VirtualJames 2026 · <button class="linkbtn" id="aboutLink">About</button></footer>
+  <footer class="foot">Retro Game Library 1.4.1 · @VirtualJames 2026 · <button class="linkbtn" id="aboutLink">About</button></footer>
 </div>
 
 <!-- Add / edit -->
@@ -538,7 +538,7 @@ html:not(.desktop) .app-only{display:none!important}
         <p>It's in no way a replacement for <b>LaunchBox</b>, which is brilliant for organising and playing your games on PC. If you haven't tried it, go and check it out at <a href="https://www.launchbox-app.com/" target="_blank" rel="noopener">launchbox-app.com</a>.</p>
         <p>Game information and box art come from the LaunchBox Games Database, built by the LaunchBox community. This app isn't made by, or affiliated with, LaunchBox.</p>
         <p>For the ZX Spectrum and ZX81, games LaunchBox doesn't have are looked up in <b>ZXDB</b>, the open Spectrum database, through <a href="https://zxinfo.dk/" target="_blank" rel="noopener">ZXInfo</a> and <a href="https://spectrumcomputing.co.uk/" target="_blank" rel="noopener">Spectrum Computing</a>. Thanks to everyone who keeps it going.</p>
-        <p>Retro Game Library 1.4 · @VirtualJames 2026 · Made with Claude Code</p>
+        <p>Retro Game Library 1.4.1 · @VirtualJames 2026 · Made with Claude Code</p>
       </section>
     </div>
   </div>
@@ -1451,7 +1451,7 @@ async function buildPdf(onProgress){
     const xo=p.imgs.length?` /XObject << ${p.imgs.map(([n,id])=>`/${n} ${id} 0 R`).join(" ")} >>`:"";
     pageIds.push(add(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${W} ${H}] /Resources << /Font << /F1 ${F1} 0 R /F2 ${F2} 0 R >>${xo} >> /Contents ${cid} 0 R >>`));
   });
-  const info=add(`<< /Title ${pdfText("Retro Game Library")} /Producer ${pdfText("Retro Game Library 1.4")} /Author ${pdfText("@VirtualJames 2026")} >>`);
+  const info=add(`<< /Title ${pdfText("Retro Game Library")} /Producer ${pdfText("Retro Game Library 1.4.1")} /Author ${pdfText("@VirtualJames 2026")} >>`);
   const all=[`<< /Type /Catalog /Pages 2 0 R >>`,`<< /Type /Pages /Kids [${pageIds.map(i=>i+" 0 R").join(" ")}] /Count ${pageIds.length} >>`,...objs];
   const chunks=[];let pos=0;const offsets=[];
   const push=s=>{const b=typeof s==="string"?enc.encode(s):s;chunks.push(b);pos+=b.length};

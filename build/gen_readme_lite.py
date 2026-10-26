@@ -111,7 +111,7 @@ brilliant for organising and playing your games on PC. Check it out at
 launchbox-app.com.
 
 CREDITS
-Retro Game Library 1.4  ·  @VirtualJames 2026
+Retro Game Library 1.4.1  ·  @VirtualJames 2026
 Game information and box art: LaunchBox Games Database
 (gamesdb.launchbox-app.com), built by the LaunchBox community.
 This app isn't made by, or affiliated with, LaunchBox.

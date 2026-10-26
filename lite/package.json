@@ -1,7 +1,7 @@
 {
   "name": "retro-game-library-build",
   "private": true,
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Build tools for Retro Game Library",
   "license": "MIT",
   "devDependencies": {

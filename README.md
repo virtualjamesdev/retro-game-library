@@ -16,7 +16,7 @@ I'd been keeping track of my retro collection in a spreadsheet. It worked, but i
 | Raspberry Pi 4/5 (64-bit) | Retro Game Library Lite (Linux ARM64, Raspberry Pi).tar.gz |
 | Any PC, no install (Chrome or Edge) | Retro Game Library (browser version).zip |
 
-The same downloads are also on the [Releases](../../releases) page. Each one has a *READ ME FIRST* file with setup steps for that system.
+The same downloads are also on the [Releases](../../releases) page, and the [changelog](CHANGELOG.md) lists what changed in each version. Each one has a *READ ME FIRST* file with setup steps for that system.
 
 ## Features
 
@@ -72,7 +72,7 @@ Found a bug or have an idea? [Open an issue](../../issues) and say which system 
 
 ## Credits
 
-Retro Game Library 1.4 · VirtualJames 2026 · Follow [virtualjames on X](https://x.com/virtualjames) for updates
+Retro Game Library 1.4.1 · VirtualJames 2026 · Follow [virtualjames on X](https://x.com/virtualjames) for updates
 
 Made with [Claude Code](https://claude.com/claude-code). I didn't code this one myself: I designed it, tested it and told Claude what my collection needed.
 
