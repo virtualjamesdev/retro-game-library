@@ -2,6 +2,13 @@
 
 Every version of Retro Game Library and what changed. Downloads for each one are on the [Releases](../../releases) page.
 
+## 1.5 (17 November 2026)
+- **Collector mode:** a new Collector tab. Make a set of games to collect on one system: everything from a software house (publisher), everything by a developer, everything from certain years, or every game on the system. Each set shows how many you own, a percentage score with Bronze, Silver, Gold and Complete badges, and a grid of owned games in colour and missing ones greyed out.
+- Click a missing game to add it to your library, already filled in.
+- Missing list as a CSV, or a PDF with box art to take to car boot sales and retro fairs.
+- "Check these" finds games in your library that look like a game in the set but aren't linked yet; confirm once and it's remembered.
+- The set list comes from the game database already on your computer. Box art for missing games is only shown, never saved.
+
 ## 1.4.1 (26 October 2026)
 - **Smarter search:** dashes, spaces, dots and accents are ignored, so "zx81" finds Sinclair ZX-81 games and "pokemon" finds Pokémon. System nicknames work too (c64, mega drive, ps2, snes and more), and every word of a multi-word search has to match. Works on the Hardware tab as well.
 

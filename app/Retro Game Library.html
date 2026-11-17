@@ -203,6 +203,27 @@ td .thumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .sheet{background:var(--panel);border-radius:10px;width:min(800px,100%);max-height:calc(100vh - 32px);overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.4)}
 .sheet header{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--panel);z-index:2}
 .sheet header .hbtns{display:flex;gap:8px}
+.card.miss .cover img{filter:grayscale(1) contrast(.75) brightness(1.15)}
+.card.miss .plat{background:var(--muted)}
+.card.own .plat{background:var(--ok)}
+tr.row.miss td{color:var(--muted)}
+.colbar{display:block;height:8px;border-radius:99px;background:var(--soft);overflow:hidden;margin-top:6px}
+.colbar i{display:block;height:100%;background:var(--accent);border-radius:99px}
+.colscore{font-size:13px;color:var(--muted)}.colscore b{color:var(--ink)}
+.card.colset .meta{padding:12px 12px 14px;gap:6px}.card.colset h3{font-size:16px}
+.colhead{display:grid;grid-template-columns:auto 1fr auto;gap:14px 18px;align-items:start;margin:0 0 18px;padding:16px;background:var(--panel);border-radius:8px;box-shadow:var(--shadow)}
+.colhead h2{margin:0;font:700 22px/1.2 var(--display)}.colhead p{margin:2px 0 6px;color:var(--muted)}
+.colbig{font-size:15px}.colbig b{font:700 20px/1 var(--display)}
+.colhead-btns{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.colhead .status{grid-column:1/-1;margin:0}
+@media (max-width:760px){.colhead{grid-template-columns:1fr}.colhead-btns{justify-content:flex-start}}
+.colcheck{background:var(--panel);border-radius:8px;box-shadow:var(--shadow);padding:12px 16px;margin:0 0 18px}
+.colcheck h3{margin:0 0 4px;font:700 16px/1.2 var(--display)}.colcheck p{margin:0 0 8px;color:var(--muted)}
+.colpair{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:6px 0;border-top:1px solid var(--line)}.colpair span{flex:1 1 260px}
+.colnames{max-height:240px;overflow:auto;border:1px solid var(--line);border-radius:6px;padding:6px 10px;background:var(--bg)}
+.colnames .chk{display:flex;gap:8px;align-items:center;padding:3px 0;font-size:14px}.colnames small{color:var(--muted)}
+.colyears{display:grid;grid-template-columns:1fr 1fr;gap:12px}.colfields .muted{margin:4px 0;font-size:13px;color:var(--muted)}
+.colpreview{font-size:15px;margin:4px 0}
 .modes{margin-top:14px}.modes button{padding:7px 16px}
 .tag.warn{border-color:var(--warn);color:var(--warn)}
 .card.hw .ph small{font-weight:400;opacity:.8}
@@ -301,7 +322,7 @@ html:not(.desktop) .app-only{display:none!important}
     <div><button class="btn primary" id="startBtn" disabled>Open my library</button></div>
   </div>
   <p class="gerr" id="gateErr"></p>
-  <footer class="foot">Retro Game Library 1.4.1 · @VirtualJames 2026</footer>
+  <footer class="foot">Retro Game Library 1.5 · @VirtualJames 2026</footer>
 </div>
 
 <div class="wrap" id="app" hidden>
@@ -318,7 +339,7 @@ html:not(.desktop) .app-only{display:none!important}
     </div>
   </header>
 
-  <div class="modes seg" role="group" aria-label="Show games or hardware"><button id="mGames" aria-pressed="true">Games</button><button id="mHw" aria-pressed="false">Hardware</button></div>
+  <div class="modes seg" role="group" aria-label="Show games, hardware or collector mode"><button id="mGames" aria-pressed="true">Games</button><button id="mHw" aria-pressed="false">Hardware</button><button id="mCol" aria-pressed="false">Collector</button></div>
   <div class="bar">
     <input type="search" id="q" placeholder="Search titles, notes…" aria-label="Search">
     <select id="show" aria-label="Show">
@@ -353,7 +374,7 @@ html:not(.desktop) .app-only{display:none!important}
   </div>
   <div class="chips" id="chips"></div>
   <main id="view"></main>
-  <footer class="foot">Retro Game Library 1.4.1 · @VirtualJames 2026 · <button class="linkbtn" id="aboutLink">About</button></footer>
+  <footer class="foot">Retro Game Library 1.5 · @VirtualJames 2026 · <button class="linkbtn" id="aboutLink">About</button></footer>
 </div>
 
 <!-- Add / edit -->
@@ -474,6 +495,42 @@ html:not(.desktop) .app-only{display:none!important}
   </div>
 </div>
 
+<!-- Collector: new / edit set -->
+<div class="scrim" id="colScrim" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="colTitle">
+    <header><h2 id="colTitle">New set</h2><div class="hbtns"><button class="btn ghost" id="colClose" type="button">Close</button><button class="btn primary" type="submit" form="colForm">Save set</button></div></header>
+    <form class="body" id="colForm" autocomplete="off">
+      <div class="fields colfields">
+        <label class="f">System<select id="cPlatform"></select></label>
+        <label class="f">Collect<select id="cBy"><option value="publisher">Everything from a software house (publisher)</option><option value="developer">Everything by a developer</option><option value="years">Everything from certain years</option><option value="system">Every game on the system</option></select></label>
+        <p class="muted full" id="cLoading" hidden></p>
+        <div class="full" id="cNameWrap">
+          <label class="f">Find a name<input id="cFind" placeholder="e.g. Ocean, Ultimate, Codemasters"></label>
+          <p class="muted">Tick every spelling that's the same company, for example “Ocean” and “Ocean Software”. The number is how many games each has on this system.</p>
+          <div class="colnames" id="cNames"></div>
+          <p class="muted" id="cBlank"></p>
+        </div>
+        <div class="full colyears" id="cYears" hidden>
+          <label class="f">From<input id="cFrom" inputmode="numeric" maxlength="4"></label>
+          <label class="f">To<input id="cTo" inputmode="numeric" maxlength="4"></label>
+        </div>
+        <label class="f full">Name of the set<input id="cName" placeholder="Filled in for you"></label>
+        <p class="full colpreview" id="cPreview"></p>
+      </div>
+    </form>
+    <div class="actions">
+      <div class="r">
+        <button class="btn danger ghost" id="colDel" type="button" hidden>Delete set</button>
+        <span id="colDelConfirm" hidden>Delete this set? Your games stay in your library. <button class="btn danger" id="colDelYes" type="button">Yes, delete</button> <button class="btn ghost" id="colDelNo" type="button">Keep</button></span>
+      </div>
+      <div class="r">
+        <button class="btn ghost" id="colCancel" type="button">Cancel</button>
+        <button class="btn primary" type="submit" form="colForm">Save set</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="scrim" id="toolsScrim" hidden>
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="toolsTitle">
     <header><h2 id="toolsTitle">Backup &amp; tools</h2><button class="btn ghost" id="toolsClose">Close</button></header>
@@ -538,7 +595,7 @@ html:not(.desktop) .app-only{display:none!important}
         <p>It's in no way a replacement for <b>LaunchBox</b>, which is brilliant for organising and playing your games on PC. If you haven't tried it, go and check it out at <a href="https://www.launchbox-app.com/" target="_blank" rel="noopener">launchbox-app.com</a>.</p>
         <p>Game information and box art come from the LaunchBox Games Database, built by the LaunchBox community. This app isn't made by, or affiliated with, LaunchBox.</p>
         <p>For the ZX Spectrum and ZX81, games LaunchBox doesn't have are looked up in <b>ZXDB</b>, the open Spectrum database, through <a href="https://zxinfo.dk/" target="_blank" rel="noopener">ZXInfo</a> and <a href="https://spectrumcomputing.co.uk/" target="_blank" rel="noopener">Spectrum Computing</a>. Thanks to everyone who keeps it going.</p>
-        <p>Retro Game Library 1.4.1 · @VirtualJames 2026 · Made with Claude Code</p>
+        <p>Retro Game Library 1.5 · @VirtualJames 2026 · Made with Claude Code</p>
       </section>
     </div>
   </div>
@@ -595,8 +652,8 @@ async function permitted(h,mode,ask){
 }
 
 /* ---------- state ---------- */
-let libDir=null, dbHandle=null, lbDir=null, lbNeedsAsk=false, games=[], hardware=[];
-let state={mode:ls.get("mode")==="hw"?"hw":"games",hwPlat:"",hwShow:"all",q:"",plat:"",show:"all",sort:ls.get("sort")||"title",view:ls.get("view")||"grid"};
+let libDir=null, dbHandle=null, lbDir=null, lbNeedsAsk=false, games=[], hardware=[], sets=[];
+let state={mode:["hw","col"].includes(ls.get("mode"))?ls.get("mode"):"games",colSet:"",colShow:"all",hwPlat:"",hwShow:"all",q:"",plat:"",show:"all",sort:ls.get("sort")||"title",view:ls.get("view")||"grid"};
 let editing=null, pending=null, removeCoverFlag=false, inheritCover=null, alts=[], altIdx=0, picked=null;
 const tkey=g=>g.title.trim().toLowerCase();
 const ckey=g=>tkey(g)+"|"+g.platform;
@@ -657,6 +714,7 @@ async function openLibrary(){
     const data=text.trim()?JSON.parse(text):{games:[]};
     games=Array.isArray(data)?data:(data.games||[]);
     hardware=Array.isArray(data)?[]:(data.hardware||[]);
+    sets=Array.isArray(data)?[]:(data.sets||[]);
     const ALIAS={"ZX Spectrum":"Sinclair ZX Spectrum","Spectrum":"Sinclair ZX Spectrum","Mega Drive":"Sega Genesis","Sega Mega Drive":"Sega Genesis","C64":"Commodore 64","Amiga":"Commodore Amiga","NES":"Nintendo Entertainment System","SNES":"Super Nintendo Entertainment System","PlayStation":"Sony Playstation","PS1":"Sony Playstation","PS2":"Sony Playstation 2","Master System":"Sega Master System","Amstrad":"Amstrad CPC"};
     games.forEach(g=>{if(ALIAS[g.platform])g.platform=ALIAS[g.platform]});
   }catch(e){showGate(false);$("gateErr").textContent="Couldn't read library.json in that folder: "+e.message;return}
@@ -731,7 +789,7 @@ async function checkDbAge(){
 let saveTimer=null, saveChain=Promise.resolve();
 function setPill(t,kind){const p=$("savePill");p.textContent=t;p.className="pill"+(kind?" "+kind:"")}
 async function writeFile(dir,name,data){const fh=await dir.getFileHandle(name,{create:true});const w=await fh.createWritable();await w.write(data);await w.close()}
-function toJSON(){return JSON.stringify({app:"Retro Game Library",version:2,savedAt:new Date().toISOString(),games,hardware},null,2)}
+function toJSON(){return JSON.stringify({app:"Retro Game Library",version:2,savedAt:new Date().toISOString(),games,hardware,sets},null,2)}
 function scheduleSave(){clearTimeout(saveTimer);setPill("Saving…");saveTimer=setTimeout(()=>{saveChain=saveChain.then(doSave)},300)}
 async function doSave(){
   try{
@@ -1004,6 +1062,7 @@ function filtered(){
 }
 function render(){
   if(state.mode==="hw")return renderHw();
+  if(state.mode==="col")return renderCol();
   syncModeUI();
   $("sort").value=state.sort;$("show").value=state.show;
   $("vGrid").setAttribute("aria-pressed",state.view==="grid");$("vList").setAttribute("aria-pressed",state.view==="list");
@@ -1040,11 +1099,11 @@ function render(){
 $("chips").onclick=e=>{const b=e.target.closest(".chip");if(!b)return;state[state.mode==="hw"?"hwPlat":"plat"]=b.dataset.p;render()};
 $("q").oninput=e=>{state.q=e.target.value;render()};
 $("sort").onchange=e=>{state.sort=e.target.value;ls.set("sort",state.sort);render()};
-$("show").onchange=e=>{state[state.mode==="hw"?"hwShow":"show"]=e.target.value;render()};
+$("show").onchange=e=>{state[state.mode==="hw"?"hwShow":state.mode==="col"?"colShow":"show"]=e.target.value;render()};
 $("vGrid").onclick=()=>{state.view="grid";ls.set("view","grid");render()};
 $("vList").onclick=()=>{state.view="list";ls.set("view","list");render()};
-$("view").onclick=e=>{const el=e.target.closest("[data-id]");if(!el)return;if(state.mode==="hw")openHw(hardware.find(h=>h.id===el.dataset.id));else openEdit(games.find(g=>g.id===el.dataset.id))};
-$("view").onkeydown=e=>{if(e.key==="Enter"){const el=e.target.closest("tr[data-id]");if(!el)return;if(state.mode==="hw")openHw(hardware.find(h=>h.id===el.dataset.id));else openEdit(games.find(g=>g.id===el.dataset.id))}};
+$("view").onclick=e=>{if(state.mode==="col"){const s=e.target.closest("[data-set]");if(s){state.colSet=s.dataset.set;state.colShow="all";state.q="";$("q").value="";render();return}const m=e.target.closest("[data-m]");if(m&&!e.target.closest(".colpair"))openColMember(m.dataset.m);return}const el=e.target.closest("[data-id]");if(!el)return;if(state.mode==="hw")openHw(hardware.find(h=>h.id===el.dataset.id));else openEdit(games.find(g=>g.id===el.dataset.id))};
+$("view").onkeydown=e=>{if(e.key==="Enter"){if(state.mode==="col"){const m=e.target.closest("tr[data-m]");if(m)openColMember(m.dataset.m);return}const el=e.target.closest("tr[data-id]");if(!el)return;if(state.mode==="hw")openHw(hardware.find(h=>h.id===el.dataset.id));else openEdit(games.find(g=>g.id===el.dataset.id))}};
 
 /* ---------- edit sheet ---------- */
 function setDrop(src){
@@ -1274,7 +1333,7 @@ $("delYes").onclick=async()=>{
   games=games.filter(x=>x.id!==g.id);await dropCoverIfUnused(g.cover,g.id);
   closeEdit();render();scheduleSave();toast("Deleted");
 };
-$("addBtn").onclick=()=>state.mode==="hw"?openHw(null):openEdit(null);
+$("addBtn").onclick=()=>state.mode==="hw"?openHw(null):state.mode==="col"?openColSet(null):openEdit(null);
 $("alsoOn").onclick=e=>{const b=e.target.closest("[data-open]");if(!b)return;const g=games.find(x=>x.id===b.dataset.open);if(g){closeEdit();openEdit(g)}};
 $("dupBtn").onclick=()=>{
   const src=editing;if(!src)return;closeEdit();openEdit(null);
@@ -1394,10 +1453,10 @@ async function coverBytes(g){
     return info&&info.n===3?{b,...info}:null;
   }catch(e){return null}
 }
-async function buildPdf(onProgress){
+async function buildPdf(onProgress,opts){
   const W=595.28,H=841.89,M=36,cols=4,gap=14,cw=(W-2*M-gap*(cols-1))/cols,ch=cw*4/3,capH=34,rowH=ch+capH+8;
-  const glist=sortedGames(),enc=new TextEncoder();
-  const list=[...glist,...hwSorted().map(h=>({_hw:1,platform:"Hardware",title:hwName(h)+(h.model&&h.platform?" ("+h.platform+")":""),cover:h.photo,meta:[h.type,h.region,h.works].filter(Boolean).join(" · ")}))];
+  const glist=opts?.list||sortedGames(),enc=new TextEncoder();
+  const list=opts?glist:[...glist,...hwSorted().map(h=>({_hw:1,platform:"Hardware",title:hwName(h)+(h.model&&h.platform?" ("+h.platform+")":""),cover:h.photo,meta:[h.type,h.region,h.works].filter(Boolean).join(" · ")}))];
   const objs=[];const add=v=>{objs.push(v);return objs.length+2}; // ids 1 and 2 are the catalog and page tree
   const F1=add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>");
   const F2=add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>");
@@ -1408,7 +1467,7 @@ async function buildPdf(onProgress){
   newPage();
   txt("Retro Game Library",M,y-22,22,true);
   const nSys=new Set(glist.map(g=>g.platform)).size;
-  txt(`My collection · ${glist.length} game${glist.length===1?"":"s"} on ${nSys} system${nSys===1?"":"s"}${hardware.length?` · ${hardware.length} hardware item${hardware.length===1?"":"s"}`:""} · ${new Date().toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"})}`,M,y-40,10,false,muted);
+  txt(opts?.heading||`My collection · ${glist.length} game${glist.length===1?"":"s"} on ${nSys} system${nSys===1?"":"s"}${hardware.length?` · ${hardware.length} hardware item${hardware.length===1?"":"s"}`:""} · ${new Date().toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"})}`,M,y-40,10,false,muted);
   y-=60;
   let lastSys=null,done=0;
   const label={CIB:"Complete in box",Boxed:"Boxed",Loose:"Loose",Sealed:"Sealed",Digital:"Digital"};
@@ -1435,7 +1494,7 @@ async function buildPdf(onProgress){
     }
     const lines=wrap2(g.title,8.5,cw,true);
     lines.forEach((l,i)=>txt(l,x,top-ch-11-i*10,8.5,true));
-    const meta=g._hw?g.meta:[g.complete==="Digital"?("Digital"+(g.store?" ("+g.store+")":"")):(label[g.complete]||g.complete),g.complete==="Digital"?"":g.region,g.year].filter(Boolean).join(" · ");
+    const meta=(g._hw||g.meta!=null)?g.meta:[g.complete==="Digital"?("Digital"+(g.store?" ("+g.store+")":"")):(label[g.complete]||g.complete),g.complete==="Digital"?"":g.region,g.year].filter(Boolean).join(" · ");
     txt(fitText(meta,7.5,cw),x,top-ch-11-lines.length*10,7.5,false,muted);
     col++;if(col===cols){col=0;y-=rowH}
     done++;onProgress&&onProgress(done/list.length);
@@ -1451,7 +1510,7 @@ async function buildPdf(onProgress){
     const xo=p.imgs.length?` /XObject << ${p.imgs.map(([n,id])=>`/${n} ${id} 0 R`).join(" ")} >>`:"";
     pageIds.push(add(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${W} ${H}] /Resources << /Font << /F1 ${F1} 0 R /F2 ${F2} 0 R >>${xo} >> /Contents ${cid} 0 R >>`));
   });
-  const info=add(`<< /Title ${pdfText("Retro Game Library")} /Producer ${pdfText("Retro Game Library 1.4.1")} /Author ${pdfText("@VirtualJames 2026")} >>`);
+  const info=add(`<< /Title ${pdfText("Retro Game Library")} /Producer ${pdfText("Retro Game Library 1.5")} /Author ${pdfText("@VirtualJames 2026")} >>`);
   const all=[`<< /Type /Catalog /Pages 2 0 R >>`,`<< /Type /Pages /Kids [${pageIds.map(i=>i+" 0 R").join(" ")}] /Count ${pageIds.length} >>`,...objs];
   const chunks=[];let pos=0;const offsets=[];
   const push=s=>{const b=typeof s==="string"?enc.encode(s):s;chunks.push(b);pos+=b.length};
@@ -1577,6 +1636,7 @@ $("restoreFile").onchange=async e=>{
     box.hidden=true;
     for(const g of list){const id=g.id||newId();const i=games.findIndex(x=>x.id===id);const row={...g,id};if(i>=0)games[i]=row;else games.push(row)}
     for(const h of hwList){const id=h.id||newId();const i=hardware.findIndex(x=>x.id===id);const row={...h,id};if(i>=0)hardware[i]=row;else hardware.push(row)}
+    for(const st of (Array.isArray(data)?[]:data?.sets||[]).filter(x=>x&&x.platform&&x.by)){const i=sets.findIndex(x=>x.id===st.id);if(i>=0)sets[i]=st;else sets.push(st)}
     render();scheduleSave();setStatus("restoreStatus",`Restored ${list.length} games${hwList.length?` and ${hwList.length} hardware items`:""}.`,"ok");
   };
 };
@@ -1820,8 +1880,20 @@ const HW_HAVE={Loose:"Unit only",Boxed:"Boxed",CIB:"Complete in box",Sealed:"Sea
 let hwEditing=null,hwPending=null,hwRemove=false;
 const hwName=h=>h.model||[h.type,h.platform].filter(Boolean).join(" · ")||"Hardware";
 function syncModeUI(){
-  const hw=state.mode==="hw";
-  $("mGames").setAttribute("aria-pressed",!hw);$("mHw").setAttribute("aria-pressed",hw);
+  const hw=state.mode==="hw",cm=state.mode==="col";
+  $("mGames").setAttribute("aria-pressed",state.mode==="games");$("mHw").setAttribute("aria-pressed",hw);$("mCol").setAttribute("aria-pressed",cm);
+  if(cm){
+    const inSet=!!sets.find(s=>s.id===state.colSet);
+    $("addBtn").textContent="+ New set";$("q").placeholder=inSet?"Search this set…":"Open a set to search it";$("q").disabled=!inSet;$("show").disabled=!inSet;$("sort").disabled=!inSet;
+    if($("show").dataset.mode!=="col"){$("show").dataset.mode="col";$("show").innerHTML=`<option value="all">Whole set</option><option value="owned">Owned</option><option value="missing">Missing</option><option value="check">Check these</option>`}
+    $("show").value=state.colShow;$("sort").value=state.sort==="year"?"year":"title";
+    const so=$("sort").options;const sl=["Title A–Z","Title A–Z","Year","Title A–Z"];for(let i=0;i<so.length&&i<4;i++)so[i].textContent=sl[i];
+    $("vGrid").setAttribute("aria-pressed",state.view==="grid");$("vList").setAttribute("aria-pressed",state.view==="list");
+    const lab=inSet?["In set","Owned","Missing","Score"]:["Sets","Owned","Missing","Best score"];
+    document.querySelectorAll("#app .counts span").forEach((s,i)=>s.textContent=lab[i]);
+    return;
+  }
+  $("q").disabled=false;$("show").disabled=false;$("sort").disabled=false;
   $("addBtn").textContent=hw?"+ Add hardware":"+ Add game";
   $("q").placeholder=hw?"Search hardware, models, serials…":"Search titles, notes…";
   const want=hw?"hw":"games";
@@ -1947,6 +2019,227 @@ function hwToCSV(){
   const q=v=>{v=v==null?"":String(v);return /[",\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
   return [HWCOLS.map(c=>c[1]).join(",")].concat(hwSorted().map(h=>HWCOLS.map(c=>q(c[0]==="complete"?(HW_HAVE[h.complete]||h.complete):h[c[0]])).join(","))).join("\r\n");
 }
+
+/* ---------- Collector mode: sets of games to collect, with a score ---------- */
+// A set is every game on one system from chosen publishers or developers, a range of years, or the whole system.
+// The list comes from the game database already on this computer; box art for missing games is only shown, never saved.
+const COL_BADGES=[[100,"Complete!","sealed"],[75,"Gold","cib"],[50,"Silver",""],[25,"Bronze",""]];
+let colEditing=null;
+function setGames(set,list){
+  const vals=new Set(set.values||[]);
+  return list.filter(g=>set.by==="system"||(set.by==="publisher"&&vals.has(g.publisher))||(set.by==="developer"&&vals.has(g.developer))
+    ||(set.by==="years"&&g.year&&+g.year>=+(set.from||0)&&+g.year<=+(set.to||9999)));
+}
+// Which of the set's games you own: linked by database ID first, then by title on the same system.
+function ownership(set,members){
+  const mine=games.filter(g=>g.platform===set.platform);
+  const byId=new Map(),byNorm=new Map();
+  for(const g of mine){if(g.dbId)byId.set(String(g.dbId),g);const k=norm(g.title);if(k&&!byNorm.has(k))byNorm.set(k,g)}
+  const owned=new Map(),used=new Set();
+  for(const m of members){
+    let g=byId.get(String(m.id));
+    if(!g)for(const k of m.norms){const x=byNorm.get(k);if(x&&!(x.dbId&&String(x.dbId)!==String(m.id)&&!String(x.dbId).startsWith("zxdb:"))){g=x;break}}
+    if(g){owned.set(m.id,g);used.add(g.id)}
+  }
+  // Possible matches to check: your games on this system that aren't linked to anything in the set but have a similar title.
+  const rejects=new Set(set.rejects||[]),check=[];
+  for(const g of mine){
+    if(used.has(g.id))continue;const k=norm(g.title);if(k.length<4)continue;
+    for(const m of members){
+      if(owned.has(m.id)||rejects.has(g.id+"|"+m.id))continue;
+      if(m.norms.some(n=>n.length>=4&&(n.startsWith(k)||k.startsWith(n)||n.includes(k)||k.includes(n)))){check.push({g,m});break}
+    }
+  }
+  return {owned,check};
+}
+function scoreOf(n,total){const pct=total?Math.floor(n/total*100):0;const badge=COL_BADGES.find(b=>pct>=b[0]);return {pct,badge}}
+const colCache=new Map(); // set id -> {members,owned,check}
+const memCache=new Map();
+async function colData(set,onProgress){
+  const key=JSON.stringify([set.platform,set.by,set.values,set.from,set.to]);let mc=memCache.get(set.id);
+  if(!mc||mc.key!==key){const [list]=await loadPlatforms([set.platform],onProgress);mc={key,members:setGames(set,list)};memCache.set(set.id,mc)}
+  const d={members:mc.members,...ownership(set,mc.members)};colCache.set(set.id,d);return d;
+}
+function colBar(pct){return `<span class="colbar"><i style="width:${pct}%"></i></span>`}
+function colBadge(b){return b?`<span class="tag ${b[2]}">${b[1]}</span>`:""}
+async function renderCol(){
+  syncModeUI();
+  const v=$("view");$("chips").innerHTML="";
+  $("cGames").textContent=sets.length;
+  const cur=sets.find(s=>s.id===state.colSet);
+  if(!dbHandle){
+    v.innerHTML=`<div class="empty"><h2>Collector mode needs the game database</h2><p>It works out every game in a set from the LaunchBox Games Database on your computer. Set it up under <b>Backup &amp; tools</b>, then come back here.</p></div>`;
+    ["cPlat","cCib","cDup"].forEach(id=>$(id).textContent="–");return;
+  }
+  if(!cur){
+    state.colSet="";
+    if(!sets.length){
+      v.innerHTML=`<div class="empty"><h2>Start a collection</h2><p>Pick a software house, a developer, a run of years or a whole system, and see which games you've got, which you're missing, and your score.</p><button class="btn primary" id="emptyCol">+ New set</button></div>`;
+      $("emptyCol").onclick=()=>openColSet(null);["cPlat","cCib","cDup"].forEach(id=>$(id).textContent="0");return;
+    }
+    v.innerHTML=`<div class="grid colsets">${sets.map(s=>`<button class="card colset" data-set="${esc(s.id)}"><span class="plat">${esc(s.platform)}</span><span class="meta"><h3>${esc(s.name)}</h3><span class="colscore" data-score="${esc(s.id)}">Working out your score…</span></span></button>`).join("")}</div>`;
+    let ownedAll=0,missAll=0,best=0;
+    try{await loadPlatforms([...new Set(sets.map(s=>s.platform))],p=>v.querySelectorAll(".colscore").forEach(e=>{if(/^Working/.test(e.textContent))e.textContent=`Reading the game database… ${Math.round(p*100)}%`}))}catch(e){}
+    for(const s of sets){
+      try{const d=await colData(s);const n=d.owned.size,t=d.members.length,{pct,badge}=scoreOf(n,t);ownedAll+=n;missAll+=t-n;best=Math.max(best,pct);
+        const el=v.querySelector(`[data-score="${CSS.escape(s.id)}"]`);if(el)el.innerHTML=`<b>${n} of ${t}</b> · ${pct}% ${colBadge(badge)}${colBar(pct)}`;}
+      catch(e){const el=v.querySelector(`[data-score="${CSS.escape(s.id)}"]`);if(el)el.textContent="Couldn't read the database."}
+    }
+    $("cPlat").textContent=ownedAll;$("cCib").textContent=missAll;$("cDup").textContent=best+"%";
+    return;
+  }
+  v.innerHTML=`<div class="empty"><p>Loading ${esc(cur.platform)} from the game database…</p></div>`;
+  let d;try{d=await colData(cur,p=>{const e=v.querySelector(".empty p");if(e)e.textContent=`Loading ${cur.platform} from the game database… ${Math.round(p*100)}%`})}
+  catch(e){v.innerHTML=`<div class="empty"><h2>Couldn't read the game database</h2><p>${esc(e.message||"")}</p></div>`;return}
+  if(state.mode!=="col"||state.colSet!==cur.id)return;
+  const n=d.owned.size,t=d.members.length,{pct,badge}=scoreOf(n,t);
+  $("cGames").textContent=t;$("cPlat").textContent=n;$("cCib").textContent=t-n;$("cDup").textContent=pct+"%";
+  const q=state.q.trim().toLowerCase(),f=state.colShow;
+  let list=d.members.filter(m=>(f==="all"||(f==="owned"&&d.owned.has(m.id))||(f==="missing"&&!d.owned.has(m.id)))&&searchHit(q,[m.title,...m.names,m.publisher,m.developer,m.year],cur.platform));
+  list.sort(state.sort==="year"?(a,b)=>(a.year||"9999").localeCompare(b.year||"9999")||a.title.localeCompare(b.title):(a,b)=>a.title.localeCompare(b.title));
+  const desc=cur.by==="system"?"Every game on this system":cur.by==="years"?`Released ${cur.from===cur.to?"in "+cur.from:cur.from+"–"+cur.to}`:`${cur.by==="publisher"?"Published":"Developed"} by ${(cur.values||[]).join(", ")}`;
+  const head=`<div class="colhead"><button class="btn ghost sm" id="colBack">← All sets</button>
+    <div class="colhead-main"><h2>${esc(cur.name)}</h2><p>${esc(desc)} · ${esc(cur.platform)}</p>
+    <div class="colbig"><b>${n}</b> of <b>${t}</b> · ${pct}% ${colBadge(badge)}</div>${colBar(pct)}</div>
+    <div class="colhead-btns"><button class="btn sm" id="colMissCsv">Missing list (CSV)…</button><button class="btn sm" id="colMissPdf">Missing list (PDF)…</button><button class="btn sm" id="colEdit">Edit set</button></div>
+    <div class="status" id="colStatus"></div></div>`;
+  let checkHtml="";
+  if(f==="check"||(d.check.length&&f==="all")){
+    checkHtml=d.check.length?`<div class="colcheck"><h3>Check these (${d.check.length})</h3><p>These games in your library look similar to games in this set. Are they the same game?</p>${d.check.slice(0,f==="check"?500:5).map(({g,m})=>`<div class="colpair" data-g="${esc(g.id)}" data-m="${esc(m.id)}"><span>Your <b>${esc(g.title)}</b> → <b>${esc(m.title)}</b>${m.year?` (${esc(m.year)})`:""}?</span><button class="btn sm primary" data-yes>Same game</button><button class="btn sm ghost" data-no>Not the same</button></div>`).join("")}${f!=="check"&&d.check.length>5?`<p><button class="btn sm ghost" id="colAllCheck">Show all ${d.check.length}</button></p>`:""}</div>`
+      :`<div class="colcheck"><p>Nothing to check: every game in your library on ${esc(cur.platform)} is either matched or clearly not in this set.</p></div>`;
+  }
+  if(f==="check"){v.innerHTML=head+checkHtml;wireColHead(cur,d);return}
+  let body;
+  if(!list.length)body=`<div class="empty"><h2>No matches</h2><p>Nothing in this set matches that search or filter.</p></div>`;
+  else if(state.view==="grid"){
+    body=`<div class="grid">${list.map(m=>{const g=d.owned.get(m.id);const c=m.covers.length?imgURL(sortCovers(m,g?.region||"PAL")[0].file):"";
+      return `<button class="card ${g?"own":"miss"}" data-m="${esc(m.id)}" title="${esc(g?"You own this. Click to open it.":"Missing. Click to add it to your library.")}">
+      <span class="plat">${g?"✓ Owned":"Missing"}</span>
+      <span class="cover"><span class="ph">${esc(m.title)}</span>${g&&g.cover?coverImg(g.cover,g.coverWeb):(c?coverImg(c):"")}</span>
+      <span class="meta"><h3>${esc(m.title)}</h3><span class="tags">${m.year?`<span class="tag">${esc(m.year)}</span>`:""}${cur.by!=="publisher"&&m.publisher?`<span class="tag">${esc(m.publisher)}</span>`:""}${g?'<span class="tag cib">Owned</span>':""}</span></span></button>`}).join("")}</div>`;
+  }else{
+    body=`<div class="tablewrap"><table><thead><tr><th></th><th>Title</th><th>Year</th><th>Publisher</th><th>Developer</th></tr></thead><tbody>${list.map(m=>{const g=d.owned.get(m.id);return `<tr class="row ${g?"own":"miss"}" data-m="${esc(m.id)}" tabindex="0"><td>${g?'<span class="tag cib">✓ Owned</span>':'<span class="tag">Missing</span>'}</td><td><b>${esc(m.title)}</b></td><td>${esc(m.year||"")}</td><td>${esc(m.publisher||"")}</td><td>${esc(m.developer||"")}</td></tr>`}).join("")}</tbody></table></div>`;
+  }
+  v.innerHTML=head+checkHtml+body;hydrate(v);wireColHead(cur,d);
+}
+function wireColHead(cur,d){
+  $("colBack").onclick=()=>{state.colSet="";state.colShow="all";state.q="";$("q").value="";render()};
+  $("colEdit").onclick=()=>openColSet(cur);
+  $("colAllCheck")&&($("colAllCheck").onclick=()=>{state.colShow="check";render()});
+  const missing=()=>d.members.filter(m=>!d.owned.has(m.id)).sort((a,b)=>a.title.localeCompare(b.title));
+  $("colMissCsv").onclick=()=>{const q=v=>{v=v==null?"":String(v);return /[",\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
+    const rows=[["Title","System","Year","Publisher","Developer"].join(",")].concat(missing().map(m=>[m.title,cur.platform,m.year,m.publisher,m.developer].map(q).join(",")));
+    saveExport(`Missing - ${cur.name}.csv`.replace(/[\\/:*?"<>|]/g,"-"),new Blob(["﻿"+rows.join("\r\n")],{type:"text/csv"}),"CSV spreadsheet","text/csv","csv","colStatus")};
+  $("colMissPdf").onclick=async()=>{const miss=missing();if(!miss.length){setStatus("colStatus","Nothing missing. You've got the lot!","ok");return}
+    const b=$("colMissPdf");b.disabled=true;setStatus("colStatus","Making the PDF…");
+    try{const pics=miss.length<=300;
+      const list=miss.map(m=>({platform:cur.name,title:m.title,cover:pics&&m.covers.length?imgURL(sortCovers(m,"PAL")[0].file):null,meta:[m.year,cur.by==="publisher"?m.developer:m.publisher].filter(Boolean).join(" · ")}));
+      const blob=await buildPdf(null,{list,heading:`Missing from ${cur.name} · ${miss.length} game${miss.length===1?"":"s"} · ${new Date().toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"})}`});
+      await saveExport(`Missing - ${cur.name}.pdf`.replace(/[\\/:*?"<>|]/g,"-"),blob,"PDF document","application/pdf","pdf","colStatus")}
+    catch(e){setStatus("colStatus","Couldn't make the PDF: "+e.message,"err")}finally{b.disabled=false}};
+  $("view").querySelectorAll(".colpair").forEach(row=>{
+    const g=games.find(x=>x.id===row.dataset.g),m=d.members.find(x=>String(x.id)===row.dataset.m);
+    row.querySelector("[data-yes]").onclick=()=>{if(!g||!m)return;g.dbId=m.id;g.year=g.year||m.year||"";g.publisher=g.publisher||m.publisher||"";g.developer=g.developer||m.developer||"";g.updatedAt=Date.now();colCache.clear();scheduleSave();render()};
+    row.querySelector("[data-no]").onclick=()=>{cur.rejects=[...(cur.rejects||[]),g.id+"|"+m.id];colCache.delete(cur.id);scheduleSave();render()};
+  });
+}
+function openColMember(id){
+  const cur=sets.find(s=>s.id===state.colSet);const d=cur&&colCache.get(cur.id);if(!d)return;
+  const m=d.members.find(x=>String(x.id)===String(id));if(!m)return;
+  const g=d.owned.get(m.id);
+  if(g){openEdit(g);return}
+  openEdit(null);setPlat(cur.platform);applyMatch(m);
+  setNote("Not in your library yet. Set what you have and click Save game to add it.",true);
+}
+/* new / edit set */
+let colPlatList=[];
+function colFillPlatforms(cur){
+  const sel=$("cPlatform");sel.innerHTML=$("fPlatform").innerHTML;sel.querySelector('option[value="__other"]')?.remove();
+  const ph=sel.querySelector('option[value=""]');if(ph)ph.textContent="Choose a system…";
+  sel.value=cur||"";if(!sel.value)sel.selectedIndex=0;
+}
+function colNames(){
+  const by=$("cBy").value;if(by!=="publisher"&&by!=="developer")return [];
+  const c=new Map();for(const g of colPlatList){const n=g[by];if(n)c.set(n,(c.get(n)||0)+1)}
+  return [...c].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]));
+}
+function colChecked(){return [...$("cNames").querySelectorAll("input:checked")].map(i=>i.value)}
+function colDrawNames(keep){
+  const by=$("cBy").value,box=$("cNames");
+  $("cNameWrap").hidden=!(by==="publisher"||by==="developer");$("cYears").hidden=by!=="years";
+  if($("cNameWrap").hidden){colPreview();return}
+  const sel=new Set(keep||colChecked());const q=skey($("cFind").value);
+  const all=colNames();const list=q?all.filter(([n])=>skey(n).includes(q)):all.slice(0,60);
+  const blank=colPlatList.filter(g=>!g[by]).length;
+  box.innerHTML=(list.length?list:[]).map(([n,c])=>`<label class="chk"><input type="checkbox" value="${esc(n)}"${sel.has(n)?" checked":""}> ${esc(n)} <small>${c}</small></label>`).join("")
+    +[...sel].filter(n=>!list.some(([x])=>x===n)).map(n=>`<label class="chk"><input type="checkbox" value="${esc(n)}" checked> ${esc(n)}</label>`).join("")
+    +(!list.length&&q?`<p class="muted">No ${by} on this system matches “${esc($("cFind").value)}”.</p>`:"")
+    +(!q&&all.length>60?`<p class="muted">Showing the 60 biggest. Type a name to find others.</p>`:"");
+  $("cBlank").textContent=blank?`${blank} game${blank===1?"":"s"} on this system ${blank===1?"has":"have"} no ${by} listed in the database, so ${blank===1?"it":"they"} can't be in a ${by} set.`:"";
+  colPreview();
+}
+function colPreview(){
+  const set=colFormSet();const p=$("cPreview");
+  if(!set.platform){p.textContent="";return}
+  if(!colPlatList.length){p.textContent="";return}
+  const members=setGames(set,colPlatList);
+  if(!members.length){p.textContent=set.by==="publisher"||set.by==="developer"?"Tick at least one name above.":"No games match.";return}
+  const {owned}=ownership(set,members);
+  p.innerHTML=`This set has <b>${members.length}</b> game${members.length===1?"":"s"}. You own <b>${owned.size}</b>.`;
+  if(!$("cName").dataset.touched)$("cName").value=colAutoName(set);
+}
+function colAutoName(set){
+  const short=set.platform.replace(/^(Sinclair|Nintendo|Sega|Sony|Microsoft|Commodore|Atari|NEC|SNK)\s+/,"").replace(/^Playstation/,"PlayStation");
+  if(set.by==="system")return `Every ${short} game`;
+  if(set.by==="years")return `${short} games ${set.from===set.to?set.from:set.from+"–"+set.to}`;
+  const v=set.values||[];if(!v.length)return "";
+  const base=v.slice().sort((a,b)=>a.length-b.length)[0];
+  return `${base} – ${short}`;
+}
+function colFormSet(){return {platform:$("cPlatform").value,by:$("cBy").value,values:colChecked(),from:$("cFrom").value||"1970",to:$("cTo").value||String(new Date().getFullYear())}}
+async function colLoadPlatform(){
+  const plat=$("cPlatform").value;colPlatList=[];$("cNames").innerHTML="";$("cPreview").textContent="";
+  if(!plat)return;
+  $("cLoading").hidden=false;$("cLoading").textContent=`Loading ${plat} from the game database…`;
+  try{const [list]=await loadPlatforms([plat],p=>$("cLoading").textContent=`Loading ${plat} from the game database… ${Math.round(p*100)}%`);
+    if($("cPlatform").value!==plat)return;colPlatList=list;
+    const ys=list.map(g=>+g.year).filter(Boolean);if(ys.length){$("cFrom").placeholder=Math.min(...ys);$("cTo").placeholder=Math.max(...ys)}
+  }catch(e){$("cLoading").textContent="Couldn't read the game database.";return}
+  $("cLoading").hidden=true;colDrawNames(colEditing?.platform===plat?colEditing.values:[]);
+}
+function openColSet(set){
+  if(!dbHandle){toast("Set up the game database first (Backup & tools).");return}
+  colEditing=set||null;updatePlatList();colFillPlatforms(set?.platform||"");
+  $("colTitle").textContent=set?"Edit set":"New set";$("cBy").value=set?.by||"publisher";$("cFind").value="";
+  $("cFrom").value=set?.from||"";$("cTo").value=set?.to||"";$("cName").value=set?.name||"";$("cName").dataset.touched=set?"1":"";
+  $("colDel").hidden=!set;$("colDelConfirm").hidden=true;$("cBlank").textContent="";
+  $("colScrim").hidden=false;colLoadPlatform();
+}
+function closeColSet(){$("colScrim").hidden=true;colEditing=null}
+$("cPlatform").onchange=colLoadPlatform;
+$("cBy").onchange=()=>colDrawNames();
+$("cFind").oninput=()=>colDrawNames();
+$("cNames").onchange=()=>colPreview();
+$("cFrom").oninput=colPreview;$("cTo").oninput=colPreview;
+$("cName").oninput=()=>{$("cName").dataset.touched=$("cName").value?"1":""};
+$("colClose").onclick=closeColSet;$("colCancel").onclick=closeColSet;
+$("colScrim").onmousedown=e=>{if(e.target===$("colScrim"))closeColSet()};
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("colScrim").hidden)closeColSet()});
+$("colDel").onclick=()=>{$("colDelConfirm").hidden=false};
+$("colDelNo").onclick=()=>{$("colDelConfirm").hidden=true};
+$("colDelYes").onclick=()=>{const s=colEditing;if(!s)return;sets=sets.filter(x=>x.id!==s.id);colCache.delete(s.id);if(state.colSet===s.id)state.colSet="";closeColSet();scheduleSave();render();toast("Set removed. Your games are untouched.")};
+$("colForm").onsubmit=e=>{
+  e.preventDefault();
+  const f=colFormSet();
+  if(!f.platform){$("cPreview").textContent="Pick a system first.";return}
+  if((f.by==="publisher"||f.by==="developer")&&!f.values.length){$("cPreview").textContent="Tick at least one name.";return}
+  const set={...(colEditing||{}),id:colEditing?.id||newId(),name:$("cName").value.trim()||colAutoName(f),platform:f.platform,by:f.by,
+    values:f.by==="publisher"||f.by==="developer"?f.values:[],from:f.by==="years"?f.from:undefined,to:f.by==="years"?f.to:undefined,createdAt:colEditing?.createdAt||Date.now()};
+  if(colEditing&&colEditing.platform!==set.platform)set.rejects=[];
+  if(colEditing)sets[sets.findIndex(s=>s.id===set.id)]=set;else sets.push(set);
+  colCache.delete(set.id);closeColSet();state.colSet=set.id;state.colShow="all";scheduleSave();render();
+};
+$("mCol").onclick=()=>{state.mode="col";ls.set("mode","col");state.q="";$("q").value="";render()};
 
 $("dlDb").onclick=()=>runDbUpdate($("dlDb"),$("gateProg"),(t,ok,err)=>{$("dbDone").textContent=ok?"✓ Downloaded":"";$("gateErr").textContent=err?t:"";if(!ok&&!err)$("dlDb").textContent=t;else $("dlDb").textContent=ok?"Download again":"Download the game database"});
 $("noticeUpdate").onclick=()=>runDbUpdate($("noticeUpdate"),null,(t,ok,err)=>{$("dbNoticeText").textContent=t;if(ok){toast("Game database updated");setTimeout(checkDbAge,1500)}});
