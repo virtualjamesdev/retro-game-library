@@ -48,6 +48,22 @@ The drop-down next to the search box shows only duplicates, games on
 several systems, physical or digital games only, or games missing box art.
 
 
+WHERE IT'S KEPT, PLAYED AND RATING
+Each game has a "Where it's kept" box (for example Shelf 2 or Loft box 4),
+which remembers the places you've used before, so the search box can tell
+you where your copy is. Hardware has one too.
+"Played?" records Not played, Playing, Finished or Gave up, and you can give
+each game 1 to 5 stars. Use the drop-down next to the search box to show
+only games you haven't played yet, ones you're playing, finished ones, or
+your 4 and 5 star games.
+
+NEW VERSIONS
+Once a day the app checks whether a newer version of Retro Game Library is
+out. If there is one, a banner appears at the top of your library with
+"Download" and "What's new" buttons. To update, download it, unzip it and
+run it: your library, settings and the game database carry on as they are.
+You can also check any time from Backup & tools > About > Check for updates.
+
 COLLECTOR MODE
 Click "Collector" at the top, then "+ New set". Pick a system and what you
 want to collect: everything from a software house (for example Ultimate
@@ -129,7 +145,7 @@ brilliant for organising and playing your games on PC. Check it out at
 launchbox-app.com.
 
 CREDITS
-Retro Game Library 1.5  ·  @VirtualJames 2026
+Retro Game Library 1.6  ·  @VirtualJames 2026
 Game information and box art: LaunchBox Games Database
 (gamesdb.launchbox-app.com), built by the LaunchBox community.
 This app isn't made by, or affiliated with, LaunchBox.

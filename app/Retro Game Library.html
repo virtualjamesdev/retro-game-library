@@ -224,6 +224,10 @@ tr.row.miss td{color:var(--muted)}
 .colnames .chk{display:flex;gap:8px;align-items:center;padding:3px 0;font-size:14px}.colnames small{color:var(--muted)}
 .colyears{display:grid;grid-template-columns:1fr 1fr;gap:12px}.colfields .muted{margin:4px 0;font-size:13px;color:var(--muted)}
 .colpreview{font-size:15px;margin:4px 0}
+.stars{display:flex;gap:2px;margin-top:2px}.stars button{border:0;background:none;font-size:24px;line-height:1;color:var(--line);cursor:pointer;padding:0 2px}
+.stars button.on{color:#e0a92e}.stars button:hover{transform:scale(1.15)}
+.tag.stars,td.stars{color:#c38d12;letter-spacing:1px;white-space:nowrap}
+#appNotice{border-color:var(--accent)}
 .modes{margin-top:14px}.modes button{padding:7px 16px}
 .tag.warn{border-color:var(--warn);color:var(--warn)}
 .card.hw .ph small{font-weight:400;opacity:.8}
@@ -244,7 +248,7 @@ tr.row.miss td{color:var(--muted)}
 .fields{display:grid;grid-template-columns:1fr 1fr;gap:12px;min-width:0;align-content:start}
 .fields .full{grid-column:1/-1}
 @media (max-width:420px){.fields{grid-template-columns:1fr}}
-label.f{display:grid;gap:4px;font-size:13px;font-weight:600;min-width:0}
+label.f,div.f{display:grid;gap:4px;font-size:13px;font-weight:600;min-width:0}
 label.f input,label.f select,label.f textarea{padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);font-weight:400;width:100%;min-width:0}
 label.f textarea{min-height:70px;resize:vertical}
 .titlebox{position:relative}
@@ -322,7 +326,7 @@ html:not(.desktop) .app-only{display:none!important}
     <div><button class="btn primary" id="startBtn" disabled>Open my library</button></div>
   </div>
   <p class="gerr" id="gateErr"></p>
-  <footer class="foot">Retro Game Library 1.5 · @VirtualJames 2026</footer>
+  <footer class="foot">Retro Game Library <span class="appver"></span> · @VirtualJames 2026</footer>
 </div>
 
 <div class="wrap" id="app" hidden>
@@ -349,6 +353,10 @@ html:not(.desktop) .app-only{display:none!important}
       <option value="physical">Physical only</option>
       <option value="digital">Digital only</option>
       <option value="nocover">Missing box art</option>
+      <option value="backlog">Not played yet</option>
+      <option value="playing">Playing</option>
+      <option value="finished">Finished</option>
+      <option value="rated">Rated 4★ or more</option>
     </select>
     <select id="sort" aria-label="Sort">
       <option value="title">Title A–Z</option>
@@ -363,6 +371,14 @@ html:not(.desktop) .app-only{display:none!important}
     <button class="btn" id="openTools">Backup &amp; tools</button>
     <button class="btn primary" id="addBtn">+ Add game</button>
   </div>
+  <div class="notice" id="appNotice" hidden>
+    <p id="appNoticeText"></p>
+    <div class="row2">
+      <a class="btn sm primary" id="appNoticeGet" href="https://virtualjames.itch.io/retro-gaming-library" target="_blank" rel="noopener">Download</a>
+      <a class="btn sm" id="appNoticeNew" href="https://github.com/virtualjamesdev/retro-game-library/releases/latest" target="_blank" rel="noopener">What's new</a>
+      <button class="btn sm ghost" id="appNoticeHide">Not now</button>
+    </div>
+  </div>
   <div class="notice" id="dbNotice" hidden>
     <p id="dbNoticeText"></p>
     <div class="row2">
@@ -374,7 +390,7 @@ html:not(.desktop) .app-only{display:none!important}
   </div>
   <div class="chips" id="chips"></div>
   <main id="view"></main>
-  <footer class="foot">Retro Game Library 1.5 · @VirtualJames 2026 · <button class="linkbtn" id="aboutLink">About</button></footer>
+  <footer class="foot">Retro Game Library <span class="appver"></span> · @VirtualJames 2026 · <button class="linkbtn" id="aboutLink">About</button></footer>
 </div>
 
 <!-- Add / edit -->
@@ -420,6 +436,9 @@ html:not(.desktop) .app-only{display:none!important}
           <label class="f">Condition
             <select id="fCond"><option>Mint</option><option>Very good</option><option selected>Good</option><option>Fair</option><option>Poor</option></select></label>
           <label class="f">Date acquired<input id="fDate" type="date"></label>
+          <label class="f">Where it's kept<input id="fLoc" list="locList" placeholder="e.g. Shelf 2, Loft box 4"></label>
+          <label class="f">Played?<select id="fPlayed"><option value="">Not set</option><option>Not played</option><option>Playing</option><option>Finished</option><option>Gave up</option></select></label>
+          <div class="f"><span>Your rating</span><div class="stars" id="fStars" role="radiogroup" aria-label="Your rating"><button type="button" data-r="1" aria-label="1 star">★</button><button type="button" data-r="2" aria-label="2 stars">★</button><button type="button" data-r="3" aria-label="3 stars">★</button><button type="button" data-r="4" aria-label="4 stars">★</button><button type="button" data-r="5" aria-label="5 stars">★</button></div></div>
           <div class="full" id="moreSys">
             <label class="f" for="addSysSel">Also own it on</label>
             <div class="sysrow"><select id="addSysSel"></select><button type="button" class="btn sm" id="addSysBtn">Add system</button></div>
@@ -475,6 +494,7 @@ html:not(.desktop) .app-only{display:none!important}
           <label class="f">What you have<select id="hHave"><option value="Loose">Unit only</option><option value="Boxed">Boxed</option><option value="CIB">Complete in box</option><option value="Sealed">Sealed</option></select></label>
           <label class="f">Condition<select id="hCond"><option>Mint</option><option>Very good</option><option selected>Good</option><option>Fair</option><option>Poor</option></select></label>
           <label class="f">Working?<select id="hWorks"><option>Working</option><option>Needs repair</option><option>Not working</option><option>Untested</option></select></label>
+          <label class="f">Where it's kept<input id="hLoc" list="locList" placeholder="e.g. Under the TV, Loft box 2"></label>
           <label class="f full">Mods / repairs<input id="hMods" placeholder="e.g. RGB mod, region-free, recapped, new belt"></label>
           <label class="f">Date acquired<input id="hDate" type="date"></label>
           <label class="f full">Notes<textarea id="hNotes" rows="3" placeholder="Where you got it, what's in the box, anything else"></textarea></label>
@@ -595,12 +615,15 @@ html:not(.desktop) .app-only{display:none!important}
         <p>It's in no way a replacement for <b>LaunchBox</b>, which is brilliant for organising and playing your games on PC. If you haven't tried it, go and check it out at <a href="https://www.launchbox-app.com/" target="_blank" rel="noopener">launchbox-app.com</a>.</p>
         <p>Game information and box art come from the LaunchBox Games Database, built by the LaunchBox community. This app isn't made by, or affiliated with, LaunchBox.</p>
         <p>For the ZX Spectrum and ZX81, games LaunchBox doesn't have are looked up in <b>ZXDB</b>, the open Spectrum database, through <a href="https://zxinfo.dk/" target="_blank" rel="noopener">ZXInfo</a> and <a href="https://spectrumcomputing.co.uk/" target="_blank" rel="noopener">Spectrum Computing</a>. Thanks to everyone who keeps it going.</p>
-        <p>Retro Game Library 1.5 · @VirtualJames 2026 · Made with Claude Code</p>
+        <p>Retro Game Library <span class="appver"></span> · @VirtualJames 2026 · Made with Claude Code</p>
+        <div class="row2"><button class="btn sm" id="updCheck">Check for updates</button></div>
+        <div class="status" id="updStatus"></div>
       </section>
     </div>
   </div>
 </div>
 
+<datalist id="locList"></datalist>
 <div class="toast" id="toast" hidden></div>
 
 <script>
@@ -730,7 +753,7 @@ async function openLibrary(){
   }
   openDir=libDir;
   $("gate").hidden=true;$("app").hidden=false;$("whereName").textContent=where(libDir);
-  setPill("Saved","ok");render();loadPlatformNames();checkDbAge();localiseAll();
+  setPill("Saved","ok");render();loadPlatformNames();checkDbAge();checkAppUpdate();localiseAll();
 }
 async function downloadDatabase(onProgress){
   if(rgl.neu){
@@ -1053,9 +1076,10 @@ function filtered(){
     &&(state.show!=="dupes"||nCopy[ckey(g)]>1)
     &&(state.show!=="multi"||plats[tkey(g)].size>1)
     &&(state.show!=="nocover"||!g.cover)
+    &&(state.show!=="backlog"||g.played==="Not played")&&(state.show!=="playing"||g.played==="Playing")&&(state.show!=="finished"||g.played==="Finished")&&(state.show!=="rated"||(g.rating||0)>=4)
     &&(state.show!=="digital"||g.complete==="Digital")
     &&(state.show!=="physical"||g.complete!=="Digital")
-    &&searchHit(q,[g.title,g.platform,g.notes,g.region,g.publisher,g.developer,g.genre,g.store],g.platform));
+    &&searchHit(q,[g.title,g.platform,g.notes,g.region,g.publisher,g.developer,g.genre,g.store,g.location],g.platform));
   const by={title:(a,b)=>a.title.localeCompare(b.title)||a.platform.localeCompare(b.platform),platform:(a,b)=>a.platform.localeCompare(b.platform)||a.title.localeCompare(b.title),
     year:(a,b)=>(a.year||"9999").localeCompare(b.year||"9999")||a.title.localeCompare(b.title),added:(a,b)=>(b.createdAt||0)-(a.createdAt||0)}[state.sort]||((a,b)=>0);
   return list.sort(by);
@@ -1089,10 +1113,10 @@ function render(){
     v.innerHTML=`<div class="grid">${list.map(g=>`<button class="card" data-id="${esc(g.id)}"${g.description?` title="${esc(g.description.slice(0,300))}"`:""}>
       <span class="plat">${esc(g.platform)}</span>
       <span class="cover"><span class="ph">${esc(g.title)}</span>${coverImg(g.cover,g.coverWeb)}</span>
-      <span class="meta"><h3>${esc(g.title)}</h3><span class="tags">${tagFor(g.complete)}${g.complete==="Digital"&&g.store?`<span class="tag">${esc(g.store)}</span>`:`<span class="tag">${esc(g.region||"")}</span>`}${g.year?`<span class="tag">${esc(g.year)}</span>`:""}${others(g)}</span></span>
+      <span class="meta"><h3>${esc(g.title)}</h3><span class="tags">${tagFor(g.complete)}${g.complete==="Digital"&&g.store?`<span class="tag">${esc(g.store)}</span>`:`<span class="tag">${esc(g.region||"")}</span>`}${g.year?`<span class="tag">${esc(g.year)}</span>`:""}${g.played==="Playing"||g.played==="Finished"?`<span class="tag ${g.played==="Finished"?"cib":""}">${esc(g.played)}</span>`:""}${g.rating?`<span class="tag stars">${"★".repeat(g.rating)}</span>`:""}${others(g)}</span></span>
     </button>`).join("")}</div>`;
   }else{
-    v.innerHTML=`<div class="tablewrap"><table><thead><tr><th></th><th>Title</th><th>System</th><th>Year</th><th>Publisher</th><th>Region</th><th>Have</th><th>Condition</th></tr></thead><tbody>${list.map(g=>`<tr class="row" data-id="${esc(g.id)}" tabindex="0"><td><div class="thumb">${coverImg(g.cover,g.coverWeb)}</div></td><td><b>${esc(g.title)}</b> ${others(g)}</td><td>${esc(g.platform)}</td><td>${esc(g.year||"")}</td><td>${esc(g.publisher||"")}</td><td>${esc(g.region)}</td><td>${tagFor(g.complete)}${g.store?` <span class="tag">${esc(g.store)}</span>`:""}</td><td>${esc(g.complete==="Digital"?"":g.cond||"")}</td></tr>`).join("")}</tbody></table></div>`;
+    v.innerHTML=`<div class="tablewrap"><table><thead><tr><th></th><th>Title</th><th>System</th><th>Year</th><th>Publisher</th><th>Region</th><th>Have</th><th>Condition</th><th>Played</th><th>Rating</th><th>Where</th></tr></thead><tbody>${list.map(g=>`<tr class="row" data-id="${esc(g.id)}" tabindex="0"><td><div class="thumb">${coverImg(g.cover,g.coverWeb)}</div></td><td><b>${esc(g.title)}</b> ${others(g)}</td><td>${esc(g.platform)}</td><td>${esc(g.year||"")}</td><td>${esc(g.publisher||"")}</td><td>${esc(g.region)}</td><td>${tagFor(g.complete)}${g.store?` <span class="tag">${esc(g.store)}</span>`:""}</td><td>${esc(g.complete==="Digital"?"":g.cond||"")}</td><td>${esc(g.played||"")}</td><td class="stars">${g.rating?"★".repeat(g.rating):""}</td><td>${esc(g.location||"")}</td></tr>`).join("")}</tbody></table></div>`;
   }
   hydrate(v);
 }
@@ -1125,7 +1149,7 @@ function openEdit(g){
   $("editTitle").textContent=g?"Edit game":"Add game";
   $("fTitle").value=g?.title||"";setPlat(g?.platform||state.plat||"");
   $("fRegion").value=g?.region||"PAL";$("fComplete").value=g?.complete||"Loose";
-  $("fCond").value=g?.cond||"Good";$("fStore").value=g?.store||"GOG";syncDigital();$("fDate").value=g?.acquired||"";$("fNotes").value=g?.notes||"";
+  $("fCond").value=g?.cond||"Good";$("fStore").value=g?.store||"GOG";syncDigital();$("fDate").value=g?.acquired||"";$("fNotes").value=g?.notes||"";$("fLoc").value=g?.location||"";$("fPlayed").value=g?.played||"";setStars(g?.rating||0);fillLocations();
   $("fDesc").value=g?.description||"";$("descCredit").textContent=g?.dbId?srcCredit(g.dbId):"";setMeta(g);
   setDrop("");if(g?.cover)coverURL(g.cover).then(u=>{if(editing===g&&u&&!pending)setDrop(u)});
   showAlts();setNote(!dbHandle?"No game database chosen, so box art won't be found automatically. Set it up under Backup & tools.":"");
@@ -1282,7 +1306,7 @@ $("editForm").onsubmit=async e=>{
     const now=Date.now(), id=editing?.id||newId();
     const g={...(editing||{}),id,
       title:$("fTitle").value.trim(),platform:platVal(),region:$("fRegion").value,
-      complete:$("fComplete").value,cond:$("fComplete").value==="Digital"?"":$("fCond").value,store:$("fComplete").value==="Digital"?$("fStore").value:"",acquired:$("fDate").value||null,notes:$("fNotes").value.trim(),
+      complete:$("fComplete").value,cond:$("fComplete").value==="Digital"?"":$("fCond").value,store:$("fComplete").value==="Digital"?$("fStore").value:"",acquired:$("fDate").value||null,notes:$("fNotes").value.trim(),location:$("fLoc").value.trim(),played:$("fPlayed").value,rating:+$("fStars").dataset.r||0,
       description:$("fDesc").value.trim(),cover:editing?.cover||inheritCover||null,
       createdAt:editing?.createdAt||now,updatedAt:now};
     if(inheritCover&&editing==null){const src=games.find(x=>x.cover===inheritCover);if(src){for(const k of ["dbId","year","developer","publisher","genre"])if(src[k]&&!g[k])g[k]=src[k]}}
@@ -1373,7 +1397,7 @@ function zipStore(files,type){
   e.setUint32(0,0x06054b50,true);e.setUint16(8,files.length,true);e.setUint16(10,files.length,true);e.setUint32(12,cdSize,true);e.setUint32(16,off,true);
   return new Blob([...parts,...central,new Uint8Array(e.buffer)],{type});
 }
-const XCOLS=[["title","Title",34],["platform","System",26],["year","Year",7],["publisher","Publisher",22],["developer","Developer",22],["genre","Genre",16],["region","Region",9],["complete","What I have",13],["store","Store",14],["cond","Condition",11],["acquired","Date acquired",13],["notes","Notes",30],["description","About the game",60]];
+const XCOLS=[["title","Title",34],["platform","System",26],["year","Year",7],["publisher","Publisher",22],["developer","Developer",22],["genre","Genre",16],["region","Region",9],["complete","What I have",13],["store","Store",14],["cond","Condition",11],["acquired","Date acquired",13],["location","Where it's kept",16],["played","Played",11],["rating","Rating",7],["notes","Notes",30],["description","About the game",60]];
 function sortedGames(){return [...games].sort((a,b)=>a.platform.localeCompare(b.platform)||a.title.localeCompare(b.title))}
 function buildXlsx(){
   const x=s=>String(s??"").replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g,"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
@@ -1510,7 +1534,7 @@ async function buildPdf(onProgress,opts){
     const xo=p.imgs.length?` /XObject << ${p.imgs.map(([n,id])=>`/${n} ${id} 0 R`).join(" ")} >>`:"";
     pageIds.push(add(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${W} ${H}] /Resources << /Font << /F1 ${F1} 0 R /F2 ${F2} 0 R >>${xo} >> /Contents ${cid} 0 R >>`));
   });
-  const info=add(`<< /Title ${pdfText("Retro Game Library")} /Producer ${pdfText("Retro Game Library 1.5")} /Author ${pdfText("@VirtualJames 2026")} >>`);
+  const info=add(`<< /Title ${pdfText("Retro Game Library")} /Producer ${pdfText("Retro Game Library "+APP_VERSION)} /Author ${pdfText("@VirtualJames 2026")} >>`);
   const all=[`<< /Type /Catalog /Pages 2 0 R >>`,`<< /Type /Pages /Kids [${pageIds.map(i=>i+" 0 R").join(" ")}] /Count ${pageIds.length} >>`,...objs];
   const chunks=[];let pos=0;const offsets=[];
   const push=s=>{const b=typeof s==="string"?enc.encode(s):s;chunks.push(b);pos+=b.length};
@@ -1537,7 +1561,7 @@ async function saveExport(name,blob,desc,mime,ext,statusId){
 }
 
 /* ---------- tools ---------- */
-const COLS=[["title","Title"],["platform","System"],["year","Year"],["publisher","Publisher"],["genre","Genre"],["region","Region"],["complete","What I have"],["store","Store"],["cond","Condition"],["acquired","Date acquired"],["notes","Notes"],["description","About the game"],["cover","Cover"]];
+const COLS=[["title","Title"],["platform","System"],["year","Year"],["publisher","Publisher"],["genre","Genre"],["region","Region"],["complete","What I have"],["store","Store"],["cond","Condition"],["acquired","Date acquired"],["location","Where it's kept"],["played","Played"],["rating","Rating"],["notes","Notes"],["description","About the game"],["cover","Cover"]];
 function toCSV(){
   const q=v=>{v=v==null?"":String(v);return /[",\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
   const rows=[...games].sort((a,b)=>a.platform.localeCompare(b.platform)||a.title.localeCompare(b.title));
@@ -1641,16 +1665,17 @@ $("restoreFile").onchange=async e=>{
   };
 };
 /* ---------- Import from a spreadsheet (CSV or Excel) ---------- */
-const IMP_COLS=["Title","System","Region","What I have","Condition","Store","Date acquired","Copies","Notes"];
+const IMP_COLS=["Title","System","Region","What I have","Condition","Store","Date acquired","Copies","Notes","Where it's kept","Played","Rating"];
+const IMP_PLAYED=["Not played","Playing","Finished","Gave up"];
 const IMP_HAVE=["Loose","Boxed","Complete in box","Sealed","Digital"];
 const IMP_COND=["Mint","Very good","Good","Fair","Poor"];
 const IMP_REGION=["PAL","NTSC-U","NTSC-J","Other"];
 const IMP_STORE=["GOG","Steam","Epic Games Store","PlayStation Store","Nintendo eShop","Xbox / Microsoft Store","itch.io","Other"];
 const IMP_EXAMPLE="EXAMPLE - delete this row";
 const IMP_EXAMPLES=[
-  ["R-Type","Sinclair ZX Spectrum","PAL","Boxed","Good","","1987-06-01","1",IMP_EXAMPLE],
-  ["Sonic the Hedgehog","Sega Genesis","PAL","Complete in box","Very good","","","2",IMP_EXAMPLE],
-  ["Baldur's Gate","Windows","","Digital","","GOG","","1",IMP_EXAMPLE]];
+  ["R-Type","Sinclair ZX Spectrum","PAL","Boxed","Good","","1987-06-01","1",IMP_EXAMPLE,"Shelf 2","Finished","5"],
+  ["Sonic the Hedgehog","Sega Genesis","PAL","Complete in box","Very good","","","2",IMP_EXAMPLE,"Loft box 4","Playing","4"],
+  ["Baldur's Gate","Windows","","Digital","","GOG","","1",IMP_EXAMPLE,"","Not played",""]];
 const SYS_ALIASES={zxspectrum:"Sinclair ZX Spectrum",spectrum:"Sinclair ZX Spectrum",speccy:"Sinclair ZX Spectrum",zx:"Sinclair ZX Spectrum",zx81:"Sinclair ZX-81",
   c64:"Commodore 64",commodore64:"Commodore 64",cbm64:"Commodore 64",vic20:"Commodore VIC-20",amiga:"Commodore Amiga",cd32:"Commodore Amiga CD32",
   cpc:"Amstrad CPC",amstrad:"Amstrad CPC",bbc:"BBC Microcomputer System",bbcmicro:"BBC Microcomputer System",electron:"Acorn Electron",atarist:"Atari ST",st:"Atari ST",
@@ -1692,6 +1717,11 @@ function normRegion(v){const k=skey(v);if(!k)return "PAL";
 function normStore(v){const k=skey(v);if(!k)return "Other";
   const hit=[["gog","GOG"],["steam","Steam"],["epic","Epic Games Store"],["psn","PlayStation Store"],["playstation","PlayStation Store"],["eshop","Nintendo eShop"],["nintendo","Nintendo eShop"],["xbox","Xbox / Microsoft Store"],["microsoft","Xbox / Microsoft Store"],["itch","itch.io"]].find(([a])=>k.includes(a));
   return hit?hit[1]:"Other"}
+function normPlayed(v){const k=skey(v);if(!k)return "";
+  if(/gaveup|abandon|dropped|quit/.test(k))return "Gave up";if(/^(not|no|unplayed|backlog|never|notplayed|notyet)/.test(k))return "Not played";
+  if(/playing|inprogress|started|current/.test(k))return "Playing";if(/finish|beat|complete|done|yes|played|100/.test(k))return "Finished";return ""}
+function normRating(v){if(v==null||v==="")return 0;const s=String(v);const st=(s.match(/★/g)||[]).length;if(st)return Math.min(5,st);
+  const m=s.match(/(\d+(?:\.\d+)?)\s*(?:\/\s*(\d+))?/);if(!m)return 0;let n=+m[1];const out=m[2]?+m[2]:(n>5?10:5);if(out&&out!==5)n=n/out*5;return Math.max(0,Math.min(5,Math.round(n)))}
 function normDate(v){
   if(v==null||v==="")return null;
   if(typeof v==="number"||/^\d{4,5}(\.\d+)?$/.test(String(v).trim())){const n=+v;if(n>20000&&n<80000){const d=new Date(Date.UTC(1899,11,30)+n*864e5);return d.toISOString().slice(0,10)}}
@@ -1702,7 +1732,7 @@ function normDate(v){
   const t=Date.parse(s);return isNaN(t)?null:new Date(t).toISOString().slice(0,10)}
 const HEAD_MAP=[["title",/^(title|game|gamename|gametitle|name)$/],["platform",/^(system|platform|console|machine|computer)$/],["region",/^region$/],
   ["complete",/^(whatihave|whatyouhave|have|completeness|contents|cib|boxed|type)$/],["cond",/^(condition|grade)$/],["store",/^(store|shop|digitalstore)$/],
-  ["acquired",/^(dateacquired|acquired|date|purchased|datepurchased|bought|datebought)$/],["copies",/^(copies|quantity|qty|count|howmany)$/],["notes",/^(notes|note|comments|comment)$/],
+  ["acquired",/^(dateacquired|acquired|date|purchased|datepurchased|bought|datebought)$/],["copies",/^(copies|quantity|qty|count|howmany)$/],["notes",/^(notes|note|comments|comment)$/],["location",/^(location|where|whereitskept|whereitis|shelf|storage|stored|storedin|kept)$/],["played",/^(played|playstatus|status|progress|beaten)$/],["rating",/^(rating|stars|myrating|score)$/],
   ["description",/^(aboutthegame|description|about|overview)$/],["year",/^(year|releaseyear|released)$/],["publisher",/^publisher$/],["developer",/^developer$/],["genre",/^genres?$/]];
 function parseCSVText(text){
   text=text.replace(/^﻿/,"");
@@ -1756,6 +1786,7 @@ function rowsToGames(rows){
     const g={title,platform:sys.name,region:normRegion(get(r,"region")),complete:have,cond:have==="Digital"?"":normCond(get(r,"cond")),store:have==="Digital"?normStore(get(r,"store")):"",
       acquired:normDate(get(r,"acquired")),notes:String(get(r,"notes")||"").trim(),description:String(get(r,"description")||"").trim()};
     for(const k of ["year","publisher","developer","genre"]){const v=String(get(r,k)||"").trim();if(v)g[k]=v}
+    {const v=String(get(r,"location")||"").trim();if(v)g.location=v;const pl=normPlayed(get(r,"played"));if(pl)g.played=pl;const rt=normRating(get(r,"rating"));if(rt)g.rating=rt}
     const n=Math.max(1,Math.min(50,parseInt(get(r,"copies"))||1));
     out.push({g,n})}
   return {list:out,unknown,examples,noSystem:out.filter(x=>!x.g.platform).length};
@@ -1766,17 +1797,17 @@ function buildTemplateXlsx(){
   const x=s=>String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
   const col=i=>{let s="";i++;while(i){const m=(i-1)%26;s=String.fromCharCode(65+m)+s;i=Math.floor((i-1)/26)}return s};
   const cell=(v,r,c,s)=>`<c r="${col(c)}${r}" t="inlineStr"${s?` s="${s}"`:""}><is><t xml:space="preserve">${x(v)}</t></is></c>`;
-  const widths=[34,28,10,18,12,22,15,8,40];
+  const widths=[34,28,10,18,12,22,15,8,40,18,12,8];
   const mine=[...new Set(games.map(g=>g.platform).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
   const systems=[...mine,...knownSystems().filter(p=>!mine.includes(p)).sort((a,b)=>a.localeCompare(b))];
-  const lists=[["Systems",systems],["Regions",IMP_REGION],["What I have",IMP_HAVE],["Condition",IMP_COND],["Store",IMP_STORE]];
+  const lists=[["Systems",systems],["Regions",IMP_REGION],["What I have",IMP_HAVE],["Condition",IMP_COND],["Store",IMP_STORE],["Played",IMP_PLAYED]];
   const rows=templateRows();
   const sheet1=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
 <sheetViews><sheetView workbookViewId="0" tabSelected="1"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>
 <cols>${widths.map((w,i)=>`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`).join("")}</cols>
 <sheetData>${rows.map((r,ri)=>`<row r="${ri+1}">${r.map((v,ci)=>cell(v,ri+1,ci,ri===0?1:(ri>0?3:0))).join("")}</row>`).join("")}</sheetData>
-<dataValidations count="5">${[["B",0],["C",1],["D",2],["E",3],["F",4]].map(([c,li])=>`<dataValidation type="list" allowBlank="1" showErrorMessage="0" sqref="${c}2:${c}5000"><formula1>Lists!$${col(li)}$2:$${col(li)}$${lists[li][1].length+1}</formula1></dataValidation>`).join("")}</dataValidations>
+<dataValidations count="6">${[["B",0],["C",1],["D",2],["E",3],["F",4],["K",5]].map(([c,li])=>`<dataValidation type="list" allowBlank="1" showErrorMessage="0" sqref="${c}2:${c}5000"><formula1>Lists!$${col(li)}$2:$${col(li)}$${lists[li][1].length+1}</formula1></dataValidation>`).join("")}</dataValidations>
 </worksheet>`;
   const maxLen=Math.max(...lists.map(l=>l[1].length));
   const sheet2=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -1796,6 +1827,8 @@ function buildTemplateXlsx(){
     "Date acquired: any normal date, for example 2024-03-15 or 15/03/2024.",
     "Copies: how many copies you own. 2 makes two entries.",
     "Notes: anything you like.",
+    "Where it's kept: optional, for example Shelf 2 or Loft box 4.",
+    "Played: Not played, Playing, Finished or Gave up. Rating: 1 to 5 stars (a number is fine).",
     "",
     "Then in Retro Game Library: Backup & tools › Import games › Import spreadsheet…",
     "Save as Excel (.xlsx) or CSV. Both work."];
@@ -1900,7 +1933,7 @@ function syncModeUI(){
   if($("show").dataset.mode!==want){
     $("show").dataset.mode=want;
     $("show").innerHTML=hw?`<option value="all">All hardware</option>${HW_TYPES.map(t=>`<option value="t:${t}">${t==="Accessory"?"Accessories":t+"s"}</option>`).join("")}<option value="w:fix">Needs repair or not working</option><option value="w:untested">Untested</option><option value="boxed">Boxed or complete</option>`
-      :`<option value="all">All games</option><option value="dupes">Duplicate copies</option><option value="multi">On several systems</option><option value="physical">Physical only</option><option value="digital">Digital only</option><option value="nocover">Missing box art</option>`;
+      :`<option value="all">All games</option><option value="dupes">Duplicate copies</option><option value="multi">On several systems</option><option value="physical">Physical only</option><option value="digital">Digital only</option><option value="nocover">Missing box art</option><option value="backlog">Not played yet</option><option value="playing">Playing</option><option value="finished">Finished</option><option value="rated">Rated 4★ or more</option>`;
   }
   $("show").value=hw?state.hwShow:state.show;
   const so=$("sort").options;const sl=hw?["Name A–Z","System","Date acquired","Recently added"]:["Title A–Z","System","Year","Recently added"];for(let i=0;i<so.length&&i<4;i++)so[i].textContent=sl[i];
@@ -1911,7 +1944,7 @@ function hwFiltered(){
   const q=state.q.trim().toLowerCase(),f=state.hwShow;
   const list=hardware.filter(h=>(!state.hwPlat||h.platform===state.hwPlat)
     &&(f==="all"||(f.startsWith("t:")&&h.type===f.slice(2))||(f==="w:fix"&&/repair|not/i.test(h.works||""))||(f==="w:untested"&&(h.works||"Untested")==="Untested")||(f==="boxed"&&["Boxed","CIB","Sealed"].includes(h.complete)))
-    &&searchHit(q,[h.model,h.platform,h.type,h.colour,h.serial,h.mods,h.notes,h.region],h.platform));
+    &&searchHit(q,[h.model,h.platform,h.type,h.colour,h.serial,h.mods,h.notes,h.region,h.location],h.platform));
   const by={title:(a,b)=>hwName(a).localeCompare(hwName(b)),platform:(a,b)=>(a.platform||"").localeCompare(b.platform||"")||hwName(a).localeCompare(hwName(b)),
     year:(a,b)=>(a.acquired||"9999").localeCompare(b.acquired||"9999"),added:(a,b)=>(b.createdAt||0)-(a.createdAt||0)}[state.sort]||((a,b)=>0);
   return list.sort(by);
@@ -1965,7 +1998,7 @@ function openHw(h,copyFrom){
   updatePlatList();fillHwPlatforms(src?.platform||state.hwPlat||"");
   $("hType").value=src?.type||"Console";$("hModel").value=src?.model||"";$("hColour").value=src?.colour||"";$("hRegion").value=src?.region||"PAL";
   $("hSerial").value=h?.serial||"";$("hHave").value=src?.complete||"Loose";$("hCond").value=src?.cond||"Good";$("hWorks").value=src?.works||"Working";
-  $("hMods").value=src?.mods||"";$("hDate").value=h?.acquired||"";$("hNotes").value=h?.notes||"";
+  $("hMods").value=src?.mods||"";$("hDate").value=h?.acquired||"";$("hNotes").value=h?.notes||"";$("hLoc").value=h?.location||"";fillLocations();
   setHwDrop("");if(h?.photo)coverURL(h.photo).then(u=>{if(hwEditing===h&&u&&!hwPending)setHwDrop(u)});
   $("hwDel").hidden=!h;$("hwCopy").hidden=!h;$("hwDelConfirm").hidden=true;$("hwNote").textContent="";
   $("hwScrim").hidden=false;setTimeout(()=>$("hModel").focus(),30);
@@ -2000,7 +2033,7 @@ $("hwForm").onsubmit=async e=>{
   try{
     const now=Date.now(),id=hwEditing?.id||newId();
     const h={...(hwEditing||{}),id,type:$("hType").value,platform:hwPlatVal(),model:$("hModel").value.trim(),colour:$("hColour").value.trim(),region:$("hRegion").value,
-      serial:$("hSerial").value.trim(),complete:$("hHave").value,cond:$("hCond").value,works:$("hWorks").value,mods:$("hMods").value.trim(),acquired:$("hDate").value||null,
+      serial:$("hSerial").value.trim(),complete:$("hHave").value,cond:$("hCond").value,works:$("hWorks").value,mods:$("hMods").value.trim(),location:$("hLoc").value.trim(),acquired:$("hDate").value||null,
       notes:$("hNotes").value.trim(),photo:hwEditing?.photo||null,createdAt:hwEditing?.createdAt||now,updatedAt:now};
     if(!h.model&&!h.platform){$("hwNote").textContent="Give it a model name or pick the system.";$("hModel").focus();return}
     const old=hwEditing?.photo||null;
@@ -2013,7 +2046,7 @@ $("hwForm").onsubmit=async e=>{
 };
 $("mGames").onclick=()=>{state.mode="games";ls.set("mode","games");render()};
 $("mHw").onclick=()=>{state.mode="hw";ls.set("mode","hw");render()};
-const HWCOLS=[["model","Model / version"],["platform","System"],["type","Type"],["colour","Colour / edition"],["region","Region"],["serial","Serial number"],["complete","What I have"],["cond","Condition"],["works","Working?"],["mods","Mods / repairs"],["acquired","Date acquired"],["notes","Notes"],["photo","Photo"]];
+const HWCOLS=[["model","Model / version"],["platform","System"],["type","Type"],["colour","Colour / edition"],["region","Region"],["serial","Serial number"],["complete","What I have"],["cond","Condition"],["works","Working?"],["mods","Mods / repairs"],["acquired","Date acquired"],["location","Where it's kept"],["notes","Notes"],["photo","Photo"]];
 function hwSorted(){return [...hardware].sort((a,b)=>(a.platform||"").localeCompare(b.platform||"")||hwName(a).localeCompare(hwName(b)))}
 function hwToCSV(){
   const q=v=>{v=v==null?"":String(v);return /[",\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
@@ -2240,6 +2273,44 @@ $("colForm").onsubmit=e=>{
   colCache.delete(set.id);closeColSet();state.colSet=set.id;state.colShow="all";scheduleSave();render();
 };
 $("mCol").onclick=()=>{state.mode="col";ls.set("mode","col");state.q="";$("q").value="";render()};
+
+
+/* ---------- New version check ---------- */
+// Once a day the app asks GitHub for the newest release and shows a banner if there's a newer version.
+const APP_VERSION="1.6";
+document.querySelectorAll(".appver").forEach(e=>e.textContent=APP_VERSION);
+const verNum=v=>String(v||"").replace(/^v/i,"").split(".").map(n=>parseInt(n,10)||0);
+function isNewer(a,b){const x=verNum(a),y=verNum(b);for(let i=0;i<Math.max(x.length,y.length);i++){const d=(x[i]||0)-(y[i]||0);if(d)return d>0}return false}
+function showAppUpdate(info){
+  const n=$("appNotice");
+  if(!info||!isNewer(info.tag,APP_VERSION)||ls.get("rgl-upd-snooze")===info.tag){n.hidden=true;return false}
+  $("appNoticeText").innerHTML=`<b>Retro Game Library ${esc(String(info.tag).replace(/^v/i,""))} is out.</b> You have ${APP_VERSION}. Download the new version, unzip it and run it: your library and settings carry on as they are.`;
+  if(info.url)$("appNoticeNew").href=info.url;n.hidden=false;return true;
+}
+async function checkAppUpdate(force){
+  const last=+(ls.get("rgl-upd-checked")||0);
+  if(!force&&Date.now()-last<20*3600e3){try{showAppUpdate(JSON.parse(ls.get("rgl-upd-latest")||"null"))}catch(e){}return null}
+  try{
+    const r=await fetch("https://api.github.com/repos/virtualjamesdev/retro-game-library/releases/latest",{cache:"no-store",headers:{Accept:"application/vnd.github+json"}});
+    if(!r.ok)throw new Error("GitHub said "+r.status);
+    const j=await r.json();const info={tag:j.tag_name,url:j.html_url};
+    ls.set("rgl-upd-checked",String(Date.now()));ls.set("rgl-upd-latest",JSON.stringify(info));showAppUpdate(info);return info;
+  }catch(e){if(force)throw e;return null}
+}
+$("appNoticeHide").onclick=()=>{try{const i=JSON.parse(ls.get("rgl-upd-latest")||"null");if(i)ls.set("rgl-upd-snooze",i.tag)}catch(e){}$("appNotice").hidden=true};
+$("updCheck").onclick=async()=>{
+  const b=$("updCheck");b.disabled=true;setStatus("updStatus","Checking…");
+  try{ls.set("rgl-upd-snooze","");const i=await checkAppUpdate(true);
+    if(i&&isNewer(i.tag,APP_VERSION))setStatus("updStatus",`Version ${String(i.tag).replace(/^v/i,"")} is available. Use the Download button at the top of the library.`,"ok");
+    else setStatus("updStatus",`You have the latest version (${APP_VERSION}).`,"ok");}
+  catch(e){setStatus("updStatus","Couldn't check for updates. Are you online?","err")}
+  finally{b.disabled=false}
+};
+
+/* ---------- Where it's kept, played and rating ---------- */
+function fillLocations(){const set=new Set([...games,...hardware].map(x=>(x.location||"").trim()).filter(Boolean));$("locList").innerHTML=[...set].sort((a,b)=>a.localeCompare(b)).map(l=>`<option value="${esc(l)}">`).join("")}
+function setStars(n){n=+n||0;const w=$("fStars");w.dataset.r=n;w.querySelectorAll("button").forEach(b=>{const on=+b.dataset.r<=n;b.classList.toggle("on",on);b.setAttribute("aria-pressed",on)})}
+$("fStars").onclick=e=>{const b=e.target.closest("button");if(!b)return;const n=+b.dataset.r;setStars(+$("fStars").dataset.r===n?0:n)};
 
 $("dlDb").onclick=()=>runDbUpdate($("dlDb"),$("gateProg"),(t,ok,err)=>{$("dbDone").textContent=ok?"✓ Downloaded":"";$("gateErr").textContent=err?t:"";if(!ok&&!err)$("dlDb").textContent=t;else $("dlDb").textContent=ok?"Download again":"Download the game database"});
 $("noticeUpdate").onclick=()=>runDbUpdate($("noticeUpdate"),null,(t,ok,err)=>{$("dbNoticeText").textContent=t;if(ok){toast("Game database updated");setTimeout(checkDbAge,1500)}});

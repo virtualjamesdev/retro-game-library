@@ -2,6 +2,12 @@
 
 Every version of Retro Game Library and what changed. Downloads for each one are on the [Releases](../../releases) page.
 
+## 1.6 (18 November 2026)
+- **New version notice:** once a day the app checks for a newer version and shows a banner with Download and What's new buttons. Check any time from About › Check for updates.
+- **Where it's kept:** a location for each game and each piece of hardware (Shelf 2, Loft box 4…), remembered for next time and searchable.
+- **Played and rating:** mark games Not played, Playing, Finished or Gave up, and give them 1 to 5 stars. New filters for not played yet, playing, finished, and 4 stars or more.
+- The new fields are in the CSV and Excel exports, the import template, and spreadsheet import (it understands headings like Shelf, Status and Stars, and ratings like 8/10).
+
 ## 1.5 (17 November 2026)
 - **Collector mode:** a new Collector tab. Make a set of games to collect on one system: everything from a software house (publisher), everything by a developer, everything from certain years, or every game on the system. Each set shows how many you own, a percentage score with Bronze, Silver, Gold and Complete badges, and a grid of owned games in colour and missing ones greyed out.
 - Click a missing game to add it to your library, already filled in.
